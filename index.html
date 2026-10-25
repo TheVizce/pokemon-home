@@ -28,6 +28,9 @@
   --accent:#6F95F0; --accent-ink:#0E1420; --slot:#252D3A; --shiny:#E2B341;
 }
 *{box-sizing:border-box}
+:root{color-scheme:light dark}
+:root[data-theme="light"]{color-scheme:light}
+:root[data-theme="dark"]{color-scheme:dark}
 html,body{margin:0}
 body{background:var(--paper);color:var(--ink);font:16px/1.5 "Atkinson Hyperlegible",system-ui,sans-serif}
 button,input,select,textarea{font:inherit;color:inherit}
@@ -38,6 +41,7 @@ h1,h2,h3{font-family:"Bricolage Grotesque",system-ui,sans-serif;line-height:1.15
 .top{display:flex;flex-wrap:wrap;align-items:flex-end;gap:16px 32px;padding:28px 24px 20px;max-width:1400px;margin:0 auto}
 .top h1{font-size:clamp(28px,4vw,44px);font-weight:800;letter-spacing:-.02em}
 .counts{display:flex;gap:28px;margin-left:auto;flex-wrap:wrap}
+.top .theme{align-self:center}
 .count b{display:block;font-family:"Bricolage Grotesque",sans-serif;font-size:28px;font-weight:700;line-height:1}
 .count span{color:var(--ink-soft);font-size:14px}
 
@@ -111,8 +115,17 @@ dialog::backdrop{background:rgba(10,14,22,.55)}
 .stats td{padding:3px 4px;vertical-align:middle}
 .stats td:first-child{white-space:nowrap;font-weight:700}
 .stats input[type=number]{min-height:32px;padding:4px 6px;width:62px}
-.stats .val{font-family:"Bricolage Grotesque",sans-serif;font-weight:700;font-size:16px;text-align:right}
-.stats .judge{display:block;font-size:12px;color:var(--ink-soft);white-space:nowrap}
+.stats .val{white-space:nowrap;font-family:"Bricolage Grotesque",sans-serif;font-weight:700;font-size:16px;text-align:right}
+.stats select{min-height:32px;padding:4px 6px;width:auto;max-width:150px}
+.pips{display:flex;gap:3px;align-items:flex-end;height:22px}
+.pips i{flex:1;background:var(--slot);border-radius:2px 2px 0 0;position:relative;height:100%}
+.pips i b{position:absolute;left:0;right:0;bottom:0;background:var(--good);border-radius:2px 2px 0 0}
+.pips i.unk b{background:transparent}
+.pips i.ht b{background:var(--shiny)}
+.pot{font-weight:700;color:var(--ink)}
+.potrow{display:grid;grid-template-columns:auto 1fr;gap:6px 10px;align-items:center;margin-top:8px;font-size:14px;color:var(--ink-soft)}
+.potrow select{width:auto}
+.warn{color:var(--bad)}
 .plus{color:var(--bad)} .minus{color:var(--accent)}
 .base{display:flex;align-items:center;gap:6px}
 .base i{display:block;height:6px;border-radius:3px;background:var(--ink-soft);opacity:.5}
@@ -134,6 +147,7 @@ dialog::backdrop{background:rgba(10,14,22,.55)}
     <div class="count"><b id="cSpecies">0</b><span id="cSpeciesLbl">verschiedene Arten</span></div>
     <div class="count"><b id="cShiny">0</b><span>Shinys</span></div>
   </div>
+  <button class="btn theme" id="themeBtn" aria-label="Darstellung wechseln"><span id="themeIcon" aria-hidden="true">☾</span> <span id="themeLbl">Dunkel</span></button>
 </header>
 
 <div class="banner" id="banner" hidden></div>
@@ -153,13 +167,16 @@ dialog::backdrop{background:rgba(10,14,22,.55)}
     <label>Box
       <select id="fBox"><option value="">Alle Boxen</option></select>
     </label>
+    <label>Gesamtpotential
+      <select id="fPot"><option value="">Alle</option></select>
+    </label>
     <label class="row"><input type="checkbox" id="fShiny"> Nur Shinys</label>
     <label>Sortieren nach
       <select id="sort">
         <option value="dex">Pokédex-Nummer</option>
         <option value="name">Name</option>
         <option value="level">Level (hoch zuerst)</option>
-        <option value="iv">DV-Summe (hoch zuerst)</option>
+        <option value="iv">Potential (hoch zuerst)</option>
         <option value="box">Box und Platz</option>
         <option value="added">Zuletzt hinzugefügt</option>
       </select>
@@ -172,7 +189,6 @@ dialog::backdrop{background:rgba(10,14,22,.55)}
     </div>
     <div class="btnrow">
       <button class="btn small" id="reloadData">Pokédex-Daten neu laden</button>
-      <button class="btn small" id="themeBtn">Hell/Dunkel</button>
     </div>
     <p class="hint">Deine Einträge liegen nur in diesem Browser. Exportiere regelmäßig eine Sicherung, um sie auf ein anderes Gerät zu übertragen.</p>
   </aside>
@@ -239,11 +255,16 @@ dialog::backdrop{background:rgba(10,14,22,.55)}
       <section>
         <h3>Werte</h3>
         <table class="stats">
-          <thead><tr><th>Wert</th><th>Basis</th><th>DV (0–31)</th><th title="Supertraining">ST</th><th>FP (0–252)</th><th style="text-align:right">Ergebnis</th></tr></thead>
+          <thead><tr><th>Wert</th><th>Basis</th><th>Potential</th><th title="Supertraining">ST</th><th>FP (0–252)</th><th style="text-align:right">Ergebnis</th></tr></thead>
           <tbody id="statRows"></tbody>
         </table>
-        <div class="totals"><span id="ivTotal">DV gesamt: –</span><span id="evTotal">FP gesamt: 0 / 510</span></div>
-        <p class="hint">DV = Determinanten (Individualwerte), FP = Fleißpunkte. Leere DV-Felder gelten als unbekannt; das Ergebnis wird dann mit 31 gerechnet und mit * markiert. Die Bewertung neben jedem DV entspricht grob der Einschätzung durch den Richter im Spiel.</p>
+        <div class="potrow">
+          <label for="eIVT">Gesamtpotential</label>
+          <select id="eIVT"></select>
+          <span></span><span id="ivTotal" class="hint"></span>
+        </div>
+        <div class="totals"><span></span><span id="evTotal">FP gesamt: 0 / 510</span></div>
+        <p class="hint">Trag das Potential so ein, wie Pokémon Home es anzeigt. Weil jede Stufe nur einen Bereich abdeckt, zeigt „Ergebnis“ den möglichen Wertebereich auf dem eingetragenen Level. ST = Supertraining (zählt als Höchstwert), FP = Fleißpunkte, optional.</p>
         <h3>Ablage und Notizen</h3>
         <div class="f2">
           <label class="f">Box in Home <input type="text" id="eBox" placeholder="z. B. 3 oder Shinys"></label>
@@ -285,6 +306,9 @@ const NATURES = [
   ["Scheu",5,1],["Hastig",5,2],["Ernst",0,0],["Froh",5,3],["Naiv",5,4],
   ["Mäßig",3,1],["Mild",3,2],["Ruhig",3,5],["Zaghaft",0,0],["Hitzig",3,4],
   ["Still",4,1],["Zart",4,2],["Forsch",4,5],["Sorgsam",4,3],["Kauzig",0,0]];
+// Potential wie in Pokémon Home: [Bezeichnung, min, max]
+const IVR = [["Schlecht",0,0],["Nicht übel",1,15],["Gut",16,25],["Sehr gut",26,29],["Fantastisch",30,30],["Sensationell",31,31]];
+const IVT = [["Akzeptabel",0,90],["Groß",91,120],["Sehr groß",121,150],["Exzellent",151,186]];
 const BALLS = ["Pokéball","Superball","Hyperball","Meisterball","Safariball","Netzball","Tauchball","Nestball","Wiederball","Timerball","Luxusball","Premierball","Finsterball","Heilball","Flottball","Jubelball","Turboball","Levelball","Köderball","Schwerball","Sympaball","Freundesball","Mondball","Traumball","Ultraball"];
 const GAMES = ["Karmesin","Purpur","Legenden: Z-A","Legenden: Arceus","Schwert","Schild","Strahlender Diamant","Leuchtende Perle","Let's Go, Pikachu!","Let's Go, Evoli!","Pokémon GO","Sonne","Mond","Ultrasonne","Ultramond","X","Y","Omega Rubin","Alpha Saphir","Virtual Console"];
 
@@ -410,12 +434,31 @@ function showBanner(html, err){ const b = $("#banner"); b.hidden = false; b.inne
 function hideBanner(){ $("#banner").hidden = true; }
 
 /* ---------- Deine Pokémon ---------- */
-let MONS = store.get(BOX_KEY, []);
+let MONS = store.get(BOX_KEY, []).map(migrate);
 function save(){ if (!store.set(BOX_KEY, MONS)) toast("Speichern fehlgeschlagen – Speicher voll?"); }
 const speciesOf = m => (m.pid && BYID.get(m.pid)) || null;
 const displayName = m => m.nick || (speciesOf(m)?.n) || m.species || "Unbekannt";
-const ivSum = m => (m.iv || []).reduce((s, v, i) => s + (m.ht?.[i] ? 31 : (v === "" || v == null ? 0 : +v)), 0);
-const ivKnown = m => (m.iv || []).some(v => v !== "" && v != null);
+// Bereich eines Einzelwerts: Supertraining = 31, unbekannt = 0–31
+const ivRange = (m, i) => m.ht?.[i] ? [31, 31] : (m.ivr?.[i] != null ? IVR[m.ivr[i]].slice(1) : [0, 31]);
+const ivSumRange = m => [0,1,2,3,4,5].reduce((s, i) => { const r = ivRange(m, i); return [s[0] + r[0], s[1] + r[1]]; }, [0, 0]);
+const ivKnown = m => m.ivt != null || (m.ivr || []).some(v => v != null) || (m.ht || []).some(Boolean);
+// Gesamtstufe: eingetragen, sonst aus Einzelwerten ableitbar (nur wenn eindeutig)
+function totalTier(m){
+  if (m.ivt != null) return m.ivt;
+  const [lo, hi] = ivSumRange(m);
+  const t = IVT.findIndex(x => lo >= x[1] && hi <= x[2]);
+  return t >= 0 && (m.ivr || []).some(v => v != null) ? t : null;
+}
+const potScore = m => { const t = totalTier(m), r = ivSumRange(m); return (t ?? -1) * 1000 + (r[0] + r[1]); };
+// alte Sicherungen mit genauen DV-Zahlen in Potential-Stufen umwandeln
+function migrate(m){
+  if (m.iv && !m.ivr){
+    m.ivr = m.iv.map(v => v === "" || v == null ? null : IVR.findIndex(x => +v >= x[1] && +v <= x[2]));
+    delete m.iv;
+  }
+  if (!m.ivr) m.ivr = [null,null,null,null,null,null];
+  return m;
+}
 
 function calcStat(i, base, iv, ev, lvl, nat, pid){
   if (!base) return null;
@@ -424,10 +467,7 @@ function calcStat(i, base, iv, ev, lvl, nat, pid){
   const n = NATURES[nat]; if (n){ if (n[1] === i && n[2] !== i) v = Math.floor(v * 1.1); else if (n[2] === i && n[1] !== i) v = Math.floor(v * 0.9); }
   return v;
 }
-function judge(iv){
-  if (iv === "" || iv == null) return "";
-  iv = +iv; return iv === 31 ? "Top" : iv === 30 ? "Fast top" : iv >= 26 ? "Sehr gut" : iv >= 16 ? "Gut" : iv >= 1 ? "Mäßig" : "Null";
-}
+
 
 /* ---------- Filter & Liste ---------- */
 function fillFilters(){
@@ -435,6 +475,8 @@ function fillFilters(){
   $("#fNature").innerHTML = `<option value="">Alle Wesen</option>` + NATURES.map((n, i) => `<option value="${i}">${n[0]}</option>`).join("");
   $("#eNature").innerHTML = `<option value="">– unbekannt –</option>` + NATURES.map((n, i) => `<option value="${i}">${n[0]}${n[1] ? ` (+${STATS[n[1]]}, −${STATS[n[2]]})` : " (neutral)"}</option>`).join("");
   $("#eTera").innerHTML = `<option value="">–</option>` + TYPES.slice(1).map((t, i) => `<option value="${i+1}">${t[0]}</option>`).join("");
+  $("#fPot").innerHTML = `<option value="">Alle</option>` + IVT.map((t, i) => `<option value="${i}">${t[0]}</option>`).join("") + `<option value="none">Nicht eingetragen</option>`;
+  $("#eIVT").innerHTML = `<option value="">– nicht eingetragen –</option>` + IVT.map((t, i) => `<option value="${i}">${t[0]} (${t[1]}–${t[2]})</option>`).join("");
   $("#ballList").innerHTML = BALLS.map(b => `<option value="${b}">`).join("");
   $("#gameList").innerHTML = GAMES.map(g => `<option value="${esc(g)}">`).join("");
 }
@@ -446,6 +488,7 @@ function fillBoxFilter(){
 
 function render(){
   fillBoxFilter();
+  const fp = $("#fPot").value;
   const q = $("#q").value.trim().toLowerCase(), ft = +$("#fType").value || 0, fn = $("#fNature").value, fb = $("#fBox").value, fs = $("#fShiny").checked;
   let list = MONS.filter(m => {
     const sp = speciesOf(m);
@@ -453,6 +496,7 @@ function render(){
     if (fn !== "" && String(m.nature) !== fn) return false;
     if (fb && m.box !== fb) return false;
     if (fs && !m.shiny) return false;
+    if (fp !== "" && (fp === "none" ? totalTier(m) != null : String(totalTier(m)) !== fp)) return false;
     if (q){
       const hay = [displayName(m), sp?.n, m.species, m.notes, (m.tags || []).join(" "), m.ot, m.game].join(" ").toLowerCase();
       if (!hay.includes(q)) return false;
@@ -465,7 +509,7 @@ function render(){
     dex: (a, b) => dexNo(a) - dexNo(b) || (a.pid || 0) - (b.pid || 0),
     name: (a, b) => displayName(a).localeCompare(displayName(b), "de"),
     level: (a, b) => (b.level || 0) - (a.level || 0),
-    iv: (a, b) => ivSum(b) - ivSum(a),
+    iv: (a, b) => potScore(b) - potScore(a),
     box: (a, b) => String(a.box || "~").localeCompare(String(b.box || "~"), "de", {numeric:true}) || (a.slot || 99) - (b.slot || 99),
     added: (a, b) => (b.added || 0) - (a.added || 0)
   }[s];
@@ -485,7 +529,10 @@ function render(){
   }
   if (!list.length){ box.innerHTML = `<div class="empty" style="grid-column:1/-1"><h2>Keine Treffer</h2><p>Kein Pokémon passt zu diesen Filtern. Ändere die Suche oder setze die Filter zurück.</p><button class="btn" onclick="resetFilters()">Filter zurücksetzen</button></div>`; return; }
   box.innerHTML = list.map(m => {
-    const sp = speciesOf(m), ivp = ivKnown(m) ? Math.round(ivSum(m) / 186 * 100) : null;
+    const sp = speciesOf(m), tt = totalTier(m);
+    const pips = [0,1,2,3,4,5].map(i => { const ht = m.ht?.[i], r = m.ivr?.[i];
+      const h = ht ? 100 : r != null ? Math.max(8, (IVR[r][2] / 31) * 100) : 0;
+      return `<i class="${ht ? "ht" : r == null ? "unk" : ""}" title="${STATS[i]}: ${ht ? "Supertraining" : r != null ? IVR[r][0] : "unbekannt"}"><b style="height:${h}%"></b></i>`; }).join("");
     const nat = NATURES[m.nature]?.[0];
     const g = m.gender === "m" ? " ♂" : m.gender === "f" ? " ♀" : "";
     return `<button class="mon" data-id="${m.id}" aria-label="${esc(displayName(m))} bearbeiten">
@@ -495,12 +542,12 @@ function render(){
       <span class="name">${esc(displayName(m))}${g}</span>
       <span class="sub"><span>${m.nick && sp ? esc(sp.n) : (sp ? "#" + sp.s : "")}</span><span>Lv. ${m.level || "?"}</span></span>
       <span class="types">${(sp?.t || []).map(typeChip).join("")}</span>
-      <span class="sub"><span>${nat || "Wesen ?"}</span><span>${ivp != null ? `DV ${ivSum(m)}/186` : "DV ?"}</span></span>
-      ${ivp != null ? `<span class="ivbar" title="${ivp} % der maximalen DV"><i style="width:${ivp}%"></i></span>` : ""}
+      <span class="sub"><span>${nat || "Wesen ?"}</span><span class="${tt != null ? "pot" : ""}">${tt != null ? IVT[tt][0] : "Potential ?"}</span></span>
+      ${ivKnown(m) ? `<span class="pips" aria-hidden="true">${pips}</span>` : ""}
     </button>`;
   }).join("");
 }
-function resetFilters(){ $("#q").value = ""; $("#fType").value = ""; $("#fNature").value = ""; $("#fBox").value = ""; $("#fShiny").checked = false; render(); }
+function resetFilters(){ $("#q").value = ""; $("#fType").value = ""; $("#fNature").value = ""; $("#fBox").value = ""; $("#fShiny").checked = false; $("#fPot").value = ""; render(); }
 
 /* ---------- Editor ---------- */
 let editing = null;
@@ -509,7 +556,7 @@ function buildStatRows(){
   $("#statRows").innerHTML = STATS.map((s, i) => `<tr>
     <td id="sn${i}">${s}</td>
     <td><span class="base"><span id="sb${i}">–</span><i id="sbb${i}"></i></span></td>
-    <td><input type="number" min="0" max="31" id="iv${i}" aria-label="DV ${s}"> <span class="judge" id="ij${i}"></span></td>
+    <td><select id="ivr${i}" aria-label="Potential ${s}"><option value="">?</option>${IVR.map((r, k) => `<option value="${k}">${r[0]}</option>`).join("")}</select></td>
     <td><input type="checkbox" id="ht${i}" aria-label="Supertraining ${s}" title="Supertraining"></td>
     <td><input type="number" min="0" max="252" step="4" id="ev${i}" aria-label="FP ${s}"></td>
     <td class="val" id="sv${i}">–</td></tr>`).join("");
@@ -533,30 +580,39 @@ function refreshEditor(){
   // Werte
   const lvl = Math.min(100, Math.max(1, +$("#eLevel").value || 50));
   const nat = $("#eNature").value === "" ? -1 : +$("#eNature").value, n = NATURES[nat];
-  let ivT = 0, ivAny = false, evT = 0;
+  let evT = 0;
+  const probe = { ivr: [], ht: [] };
   for (let i = 0; i < 6; i++){
-    const base = sp?.b[i] || 0, ivRaw = $("#iv" + i).value, ht = $("#ht" + i).checked;
-    const iv = ht ? 31 : (ivRaw === "" ? 31 : Math.min(31, Math.max(0, +ivRaw)));
+    const base = sp?.b[i] || 0, rv = $("#ivr" + i).value, ht = $("#ht" + i).checked;
+    probe.ivr[i] = rv === "" ? null : +rv; probe.ht[i] = ht;
+    $("#ivr" + i).disabled = ht;
+    const [lo, hi] = ivRange(probe, i);
     const ev = Math.min(252, Math.max(0, +$("#ev" + i).value || 0));
-    if (ivRaw !== "" || ht){ ivAny = true; ivT += iv; }
     evT += ev;
     $("#sb" + i).textContent = base || "–";
     $("#sbb" + i).style.width = base ? Math.min(60, base / 255 * 60) + "px" : "0";
-    $("#ij" + i).textContent = ht ? "Supertr." : judge(ivRaw);
-    const v = calcStat(i, base, iv, ev, lvl, nat, sp?.id);
-    $("#sv" + i).textContent = v == null ? "–" : v + (ivRaw === "" && !ht ? "*" : "");
+    const a = calcStat(i, base, lo, ev, lvl, nat, sp?.id), b = calcStat(i, base, hi, ev, lvl, nat, sp?.id);
+    $("#sv" + i).textContent = a == null ? "–" : a === b ? a : `${a}–${b}`;
     const name = $("#sn" + i);
     name.className = n && n[1] === i && n[2] !== i ? "plus" : n && n[2] === i && n[1] !== i ? "minus" : "";
     name.textContent = STATS[i] + (name.className === "plus" ? " ↑" : name.className === "minus" ? " ↓" : "");
   }
-  $("#ivTotal").textContent = ivAny ? `DV gesamt: ${ivT} / 186` : "DV gesamt: –";
+  const [slo, shi] = ivSumRange(probe), tv = $("#eIVT").value, tEl = $("#ivTotal");
+  const anyKnown = probe.ivr.some(v => v != null) || probe.ht.some(Boolean);
+  if (!anyKnown){ tEl.textContent = ""; tEl.className = "hint"; }
+  else {
+    const fits = IVT.filter(x => shi >= x[1] && slo <= x[2]).map(x => x[0]);
+    const clash = tv !== "" && !fits.includes(IVT[+tv][0]);
+    tEl.className = clash ? "hint warn" : "hint";
+    tEl.textContent = clash ? `Passt nicht zu den Einzelwerten (Summe ${slo}–${shi}). Bitte prüfen.` : `Einzelwerte ergeben ${slo}–${shi} von 186${fits.length === 1 && tv === "" ? `, also „${fits[0]}“` : ""}.`;
+  }
   const evEl = $("#evTotal"); evEl.textContent = `FP gesamt: ${evT} / 510`; evEl.className = evT > 510 ? "over" : "";
 }
 
 function openEditor(id){
   if (!ed.dataset.built){ buildStatRows(); ed.dataset.built = 1; ed.addEventListener("input", refreshEditor); ed.addEventListener("change", refreshEditor); }
   editing = id ? MONS.find(m => m.id === id) : null;
-  const m = editing || { level: 50, iv: ["","","","","",""], ev: [0,0,0,0,0,0], moves: [] };
+  const m = editing || { level: 50, ivr: [null,null,null,null,null,null], ev: [0,0,0,0,0,0], moves: [] };
   const sp = speciesOf(m);
   $("#eSpecies").value = sp ? sp.label : (m.species || "");
   $("#eNick").value = m.nick || ""; $("#eLevel").value = m.level ?? "";
@@ -566,7 +622,8 @@ function openEditor(id){
   $("#eGame").value = m.game || ""; $("#eOT").value = m.ot || ""; $("#eTID").value = m.tid || "";
   $("#eShiny").checked = !!m.shiny; $("#eAlpha").checked = !!m.alpha; $("#eGmax").checked = !!m.gmax;
   for (let i = 0; i < 4; i++) $("#eM" + (i+1)).value = m.moves?.[i] || "";
-  for (let i = 0; i < 6; i++){ $("#iv" + i).value = m.iv?.[i] ?? ""; $("#ev" + i).value = m.ev?.[i] || ""; $("#ht" + i).checked = !!m.ht?.[i]; }
+  $("#eIVT").value = m.ivt ?? "";
+  for (let i = 0; i < 6; i++){ $("#ivr" + i).value = m.ivr?.[i] ?? ""; $("#ev" + i).value = m.ev?.[i] || ""; $("#ht" + i).checked = !!m.ht?.[i]; }
   $("#eBox").value = m.box || ""; $("#eSlot").value = m.slot || ""; $("#eTags").value = (m.tags || []).join(", "); $("#eNotes").value = m.notes || "";
   $("#edDelete").hidden = !editing; $("#edDup").hidden = !editing;
   refreshEditor();
@@ -586,7 +643,8 @@ function readEditor(){
     ot: $("#eOT").value.trim(), tid: $("#eTID").value.trim(),
     shiny: $("#eShiny").checked, alpha: $("#eAlpha").checked, gmax: $("#eGmax").checked,
     moves: [1,2,3,4].map(i => $("#eM" + i).value.trim()).filter(Boolean),
-    iv: [0,1,2,3,4,5].map(i => num($("#iv" + i).value, 0, 31)),
+    ivr: [0,1,2,3,4,5].map(i => $("#ivr" + i).value === "" ? null : +$("#ivr" + i).value),
+    ivt: $("#eIVT").value === "" ? null : +$("#eIVT").value,
     ht: [0,1,2,3,4,5].map(i => $("#ht" + i).checked),
     ev: [0,1,2,3,4,5].map(i => +num($("#ev" + i).value || 0, 0, 252)),
     box: $("#eBox").value.trim(), slot: $("#eSlot").value ? +$("#eSlot").value : null,
@@ -616,7 +674,7 @@ $("#edDup").onclick = () => {
 /* ---------- Ereignisse ---------- */
 $("#addBtn").onclick = () => openEditor();
 $("#box").addEventListener("click", e => { const c = e.target.closest(".mon"); if (c) openEditor(c.dataset.id); });
-["#q","#fType","#fNature","#fBox","#fShiny","#sort"].forEach(s => $(s).addEventListener("input", render));
+["#q","#fType","#fNature","#fBox","#fPot","#fShiny","#sort"].forEach(s => $(s).addEventListener("input", render));
 $("#reloadData").onclick = () => loadDex(true);
 $("#exportBtn").onclick = () => {
   const blob = new Blob([JSON.stringify({ app: "pkbox", version: 1, exported: new Date().toISOString(), pokemon: MONS }, null, 2)], { type: "application/json" });
@@ -631,6 +689,7 @@ $("#importFile").onchange = async e => {
     const j = JSON.parse(await f.text()), list = Array.isArray(j) ? j : j.pokemon;
     if (!Array.isArray(list)) throw new Error("Keine Pokémon-Liste gefunden");
     const replace = MONS.length && confirm(`${list.length} Pokémon gefunden.\n\nOK = vorhandene ${MONS.length} Einträge ersetzen\nAbbrechen = zusammenführen`);
+    list.forEach(migrate);
     if (replace) MONS = list;
     else { const ids = new Set(MONS.map(m => m.id)); for (const m of list) if (!ids.has(m.id)) MONS.push(m); }
     save(); render(); toast("Sicherung importiert");
@@ -640,11 +699,17 @@ $("#themeBtn").onclick = () => {
   const dark = matchMedia("(prefers-color-scheme: dark)").matches;
   const cur = document.documentElement.dataset.theme || (dark ? "dark" : "light");
   const next = cur === "dark" ? "light" : "dark";
-  document.documentElement.dataset.theme = next; store.set(THEME_KEY, next);
+  document.documentElement.dataset.theme = next; store.set(THEME_KEY, next); themeLabel();
 };
+function themeLabel(){
+  const dark = (document.documentElement.dataset.theme || (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light")) === "dark";
+  $("#themeIcon").textContent = dark ? "☀" : "☾"; $("#themeLbl").textContent = dark ? "Hell" : "Dunkel";
+}
+matchMedia("(prefers-color-scheme: dark)").addEventListener?.("change", themeLabel);
 
 /* ---------- Start ---------- */
 const savedTheme = store.get(THEME_KEY, null); if (savedTheme) document.documentElement.dataset.theme = savedTheme;
+themeLabel();
 fillFilters();
 render();
 loadDex(false);
