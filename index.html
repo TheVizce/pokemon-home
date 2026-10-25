@@ -1,0 +1,653 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Meine Pokémon-Boxen</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Atkinson+Hyperlegible:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ink:#1D2433; --ink-soft:#5A6478; --paper:#E9EEF3; --panel:#FFFFFF; --line:#CDD6E0;
+  --accent:#2F5FD0; --accent-ink:#FFFFFF; --shiny:#B8860B; --bad:#C0392B; --good:#1F8A52;
+  --slot:#F4F7FA; --radius-lg:14px; --radius-sm:6px;
+  --t-normal:#9FA19F; --t-kampf:#E0712C; --t-flug:#81B9EF; --t-gift:#9141CB; --t-boden:#915121;
+  --t-gestein:#AFA981; --t-kaefer:#91A119; --t-geist:#704170; --t-stahl:#60A1B8; --t-feuer:#E62829;
+  --t-wasser:#2980EF; --t-pflanze:#3FA129; --t-elektro:#E0B400; --t-psycho:#EF4179; --t-eis:#3DCEF3;
+  --t-drache:#5060E1; --t-unlicht:#624D4E; --t-fee:#EF70EF; --t-stellar:#40B5A5;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --ink:#E6EBF2; --ink-soft:#9AA6B8; --paper:#151A23; --panel:#1E2531; --line:#323C4C;
+    --accent:#6F95F0; --accent-ink:#0E1420; --slot:#252D3A; --shiny:#E2B341;
+  }
+}
+:root[data-theme="dark"]{
+  --ink:#E6EBF2; --ink-soft:#9AA6B8; --paper:#151A23; --panel:#1E2531; --line:#323C4C;
+  --accent:#6F95F0; --accent-ink:#0E1420; --slot:#252D3A; --shiny:#E2B341;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--paper);color:var(--ink);font:16px/1.5 "Atkinson Hyperlegible",system-ui,sans-serif}
+button,input,select,textarea{font:inherit;color:inherit}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+h1,h2,h3{font-family:"Bricolage Grotesque",system-ui,sans-serif;line-height:1.15;margin:0}
+
+/* Kopfzeile */
+.top{display:flex;flex-wrap:wrap;align-items:flex-end;gap:16px 32px;padding:28px 24px 20px;max-width:1400px;margin:0 auto}
+.top h1{font-size:clamp(28px,4vw,44px);font-weight:800;letter-spacing:-.02em}
+.counts{display:flex;gap:28px;margin-left:auto;flex-wrap:wrap}
+.count b{display:block;font-family:"Bricolage Grotesque",sans-serif;font-size:28px;font-weight:700;line-height:1}
+.count span{color:var(--ink-soft);font-size:14px}
+
+.banner{max-width:1400px;margin:0 auto 12px;padding:0 24px}
+.banner > div{background:var(--panel);border:1px solid var(--line);border-left:4px solid var(--accent);padding:10px 14px;border-radius:var(--radius-sm);display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.banner .err{border-left-color:var(--bad)}
+.progress{flex:1;min-width:120px;height:6px;background:var(--slot);border-radius:3px;overflow:hidden}
+.progress i{display:block;height:100%;background:var(--accent);width:0;transition:width .2s}
+
+/* Layout */
+.wrap{max-width:1400px;margin:0 auto;padding:0 24px 48px;display:grid;grid-template-columns:260px 1fr;gap:24px;align-items:start}
+@media (max-width:820px){.wrap{grid-template-columns:1fr}}
+.side{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius-lg);padding:18px;position:sticky;top:16px;display:grid;gap:14px}
+@media (max-width:820px){.side{position:static}}
+.side label{display:grid;gap:4px;font-size:14px;color:var(--ink-soft)}
+.side .row{display:flex;gap:8px;align-items:center;color:var(--ink);font-size:15px}
+.side hr{border:0;border-top:1px solid var(--line);margin:4px 0;width:100%}
+
+input[type=text],input[type=number],input[type=search],select,textarea{
+  width:100%;background:var(--slot);border:1px solid var(--line);border-radius:var(--radius-sm);padding:8px 10px;min-height:38px}
+textarea{min-height:80px;resize:vertical}
+input[type=checkbox]{width:18px;height:18px;accent-color:var(--accent)}
+
+.btn{border:1px solid var(--line);background:var(--panel);border-radius:999px;padding:8px 16px;cursor:pointer;font-weight:700;min-height:38px}
+.btn:hover{border-color:var(--ink-soft)}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn.danger{color:var(--bad)}
+.btn.small{padding:4px 12px;min-height:30px;font-size:14px}
+.btnrow{display:flex;gap:8px;flex-wrap:wrap}
+
+/* Raster: die Box */
+.box{display:grid;grid-template-columns:repeat(auto-fill,minmax(168px,1fr));gap:12px}
+.mon{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius-lg);padding:12px;cursor:pointer;text-align:left;display:grid;gap:6px;position:relative}
+.mon:hover{border-color:var(--accent)}
+.mon .sprite{width:96px;height:96px;margin:0 auto;image-rendering:pixelated;display:block;background:var(--slot);border-radius:50%}
+.mon .name{font-weight:700;font-size:16px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mon .sub{font-size:13px;color:var(--ink-soft);display:flex;justify-content:space-between;gap:6px}
+.mon .star{position:absolute;top:10px;right:12px;color:var(--shiny);font-size:18px}
+.mon .loc{position:absolute;top:10px;left:12px;font-size:12px;color:var(--ink-soft)}
+.ivbar{height:5px;background:var(--slot);border-radius:3px;overflow:hidden}
+.ivbar i{display:block;height:100%;background:var(--good)}
+
+.types{display:flex;gap:4px;flex-wrap:wrap}
+.type{font-size:12px;font-weight:700;color:#fff;padding:1px 8px;border-radius:999px;text-shadow:0 1px 1px rgba(0,0,0,.35)}
+
+.empty{background:var(--panel);border:2px dashed var(--line);border-radius:var(--radius-lg);padding:48px 24px;text-align:center}
+.empty p{color:var(--ink-soft);max-width:46ch;margin:8px auto 18px}
+
+/* Editor */
+dialog{border:0;padding:0;border-radius:var(--radius-lg);background:var(--panel);color:var(--ink);width:min(980px,96vw);max-height:94vh}
+dialog::backdrop{background:rgba(10,14,22,.55)}
+.ed-head{display:flex;gap:16px;align-items:center;padding:18px 20px;border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--panel);z-index:2}
+.ed-head img{width:72px;height:72px;image-rendering:pixelated;background:var(--slot);border-radius:50%}
+.ed-head h2{font-size:24px}
+.ed-head .x{margin-left:auto}
+.ed-body{padding:20px;display:grid;grid-template-columns:1fr 1fr;gap:20px 28px}
+@media (max-width:760px){.ed-body{grid-template-columns:1fr}}
+.ed-body section{display:grid;gap:10px;align-content:start}
+.ed-body h3{font-size:17px;padding-bottom:4px;border-bottom:1px solid var(--line)}
+.f{display:grid;gap:3px;font-size:14px;color:var(--ink-soft)}
+.f2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.f3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+.check{display:flex;gap:8px;align-items:center;color:var(--ink);font-size:15px}
+.hint{font-size:13px;color:var(--ink-soft)}
+.ed-foot{display:flex;gap:8px;padding:16px 20px;border-top:1px solid var(--line);position:sticky;bottom:0;background:var(--panel);flex-wrap:wrap}
+.ed-foot .grow{flex:1}
+
+/* Wertetabelle */
+.stats{width:100%;border-collapse:collapse;font-size:14px}
+.stats th{text-align:left;font-weight:700;color:var(--ink-soft);padding:4px 4px 6px;font-size:13px}
+.stats td{padding:3px 4px;vertical-align:middle}
+.stats td:first-child{white-space:nowrap;font-weight:700}
+.stats input[type=number]{min-height:32px;padding:4px 6px;width:62px}
+.stats .val{font-family:"Bricolage Grotesque",sans-serif;font-weight:700;font-size:16px;text-align:right}
+.stats .judge{display:block;font-size:12px;color:var(--ink-soft);white-space:nowrap}
+.plus{color:var(--bad)} .minus{color:var(--accent)}
+.base{display:flex;align-items:center;gap:6px}
+.base i{display:block;height:6px;border-radius:3px;background:var(--ink-soft);opacity:.5}
+.totals{display:flex;justify-content:space-between;font-size:14px;color:var(--ink-soft);margin-top:6px}
+.totals .over{color:var(--bad);font-weight:700}
+.abil-desc{font-size:13px;color:var(--ink-soft)}
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--ink);color:var(--paper);padding:10px 18px;border-radius:999px;font-weight:700;opacity:0;transition:opacity .2s;pointer-events:none;z-index:50}
+.toast.on{opacity:1}
+@media (prefers-reduced-motion: reduce){*{transition:none!important}}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <h1>Meine Pokémon-Boxen</h1>
+  <div class="counts" aria-live="polite">
+    <div class="count"><b id="cTotal">0</b><span>Pokémon gespeichert</span></div>
+    <div class="count"><b id="cSpecies">0</b><span id="cSpeciesLbl">verschiedene Arten</span></div>
+    <div class="count"><b id="cShiny">0</b><span>Shinys</span></div>
+  </div>
+</header>
+
+<div class="banner" id="banner" hidden></div>
+
+<main class="wrap">
+  <aside class="side" aria-label="Filter und Aktionen">
+    <button class="btn primary" id="addBtn">Pokémon hinzufügen</button>
+    <label>Suchen
+      <input type="search" id="q" placeholder="Name, Spitzname, Notiz, Tag">
+    </label>
+    <label>Typ
+      <select id="fType"><option value="">Alle Typen</option></select>
+    </label>
+    <label>Wesen
+      <select id="fNature"><option value="">Alle Wesen</option></select>
+    </label>
+    <label>Box
+      <select id="fBox"><option value="">Alle Boxen</option></select>
+    </label>
+    <label class="row"><input type="checkbox" id="fShiny"> Nur Shinys</label>
+    <label>Sortieren nach
+      <select id="sort">
+        <option value="dex">Pokédex-Nummer</option>
+        <option value="name">Name</option>
+        <option value="level">Level (hoch zuerst)</option>
+        <option value="iv">DV-Summe (hoch zuerst)</option>
+        <option value="box">Box und Platz</option>
+        <option value="added">Zuletzt hinzugefügt</option>
+      </select>
+    </label>
+    <hr>
+    <div class="btnrow">
+      <button class="btn small" id="exportBtn">Sicherung exportieren</button>
+      <button class="btn small" id="importBtn">Sicherung importieren</button>
+      <input type="file" id="importFile" accept="application/json,.json" hidden>
+    </div>
+    <div class="btnrow">
+      <button class="btn small" id="reloadData">Pokédex-Daten neu laden</button>
+      <button class="btn small" id="themeBtn">Hell/Dunkel</button>
+    </div>
+    <p class="hint">Deine Einträge liegen nur in diesem Browser. Exportiere regelmäßig eine Sicherung, um sie auf ein anderes Gerät zu übertragen.</p>
+  </aside>
+
+  <section aria-label="Deine Pokémon">
+    <div class="box" id="box"></div>
+  </section>
+</main>
+
+<dialog id="ed" aria-labelledby="edTitle">
+  <form method="dialog" id="edForm">
+    <div class="ed-head">
+      <img id="edSprite" alt="" onerror="this.style.visibility='hidden'" onload="this.style.visibility='visible'" src="data:image/gif;base64,R0lGODlhAQABAAAAACw=">
+      <div>
+        <h2 id="edTitle">Neues Pokémon</h2>
+        <div class="types" id="edTypes"></div>
+      </div>
+      <button type="button" class="btn small x" id="edClose" aria-label="Schließen">Schließen</button>
+    </div>
+
+    <div class="ed-body">
+      <section>
+        <h3>Grunddaten</h3>
+        <label class="f">Pokémon
+          <input type="text" id="eSpecies" list="speciesList" autocomplete="off" placeholder="z. B. Glurak" required>
+        </label>
+        <div class="f2">
+          <label class="f">Spitzname <input type="text" id="eNick"></label>
+          <label class="f">Level <input type="number" id="eLevel" min="1" max="100" value="50"></label>
+        </div>
+        <div class="f2">
+          <label class="f">Geschlecht
+            <select id="eGender"><option value="">–</option><option value="m">männlich ♂</option><option value="f">weiblich ♀</option><option value="n">geschlechtslos</option></select>
+          </label>
+          <label class="f">Wesen <select id="eNature"></select></label>
+        </div>
+        <label class="f">Fähigkeit <select id="eAbility"></select></label>
+        <div class="f2">
+          <label class="f">Tera-Typ <select id="eTera"></select></label>
+          <label class="f">Getragenes Item <input type="text" id="eItem"></label>
+        </div>
+        <div class="f2">
+          <label class="f">Ball <input type="text" id="eBall" list="ballList"></label>
+          <label class="f">Herkunftsspiel <input type="text" id="eGame" list="gameList"></label>
+        </div>
+        <div class="f2">
+          <label class="f">Originaltrainer (OT) <input type="text" id="eOT"></label>
+          <label class="f">ID-Nr. <input type="text" id="eTID" inputmode="numeric"></label>
+        </div>
+        <div class="check-row" style="display:flex;gap:18px;flex-wrap:wrap">
+          <label class="check"><input type="checkbox" id="eShiny"> Shiny</label>
+          <label class="check"><input type="checkbox" id="eAlpha"> Alpha</label>
+          <label class="check"><input type="checkbox" id="eGmax"> Gigadynamax-fähig</label>
+        </div>
+        <h3>Attacken</h3>
+        <div class="f2">
+          <input type="text" id="eM1" list="moveList" aria-label="Attacke 1" placeholder="Attacke 1">
+          <input type="text" id="eM2" list="moveList" aria-label="Attacke 2" placeholder="Attacke 2">
+          <input type="text" id="eM3" list="moveList" aria-label="Attacke 3" placeholder="Attacke 3">
+          <input type="text" id="eM4" list="moveList" aria-label="Attacke 4" placeholder="Attacke 4">
+        </div>
+      </section>
+
+      <section>
+        <h3>Werte</h3>
+        <table class="stats">
+          <thead><tr><th>Wert</th><th>Basis</th><th>DV (0–31)</th><th title="Supertraining">ST</th><th>FP (0–252)</th><th style="text-align:right">Ergebnis</th></tr></thead>
+          <tbody id="statRows"></tbody>
+        </table>
+        <div class="totals"><span id="ivTotal">DV gesamt: –</span><span id="evTotal">FP gesamt: 0 / 510</span></div>
+        <p class="hint">DV = Determinanten (Individualwerte), FP = Fleißpunkte. Leere DV-Felder gelten als unbekannt; das Ergebnis wird dann mit 31 gerechnet und mit * markiert. Die Bewertung neben jedem DV entspricht grob der Einschätzung durch den Richter im Spiel.</p>
+        <h3>Ablage und Notizen</h3>
+        <div class="f2">
+          <label class="f">Box in Home <input type="text" id="eBox" placeholder="z. B. 3 oder Shinys"></label>
+          <label class="f">Platz <input type="number" id="eSlot" min="1" max="30"></label>
+        </div>
+        <label class="f">Tags (mit Komma getrennt) <input type="text" id="eTags" placeholder="Zucht, Kampfteam, Tausch"></label>
+        <label class="f">Notizen <textarea id="eNotes"></textarea></label>
+      </section>
+    </div>
+
+    <div class="ed-foot">
+      <button type="button" class="btn danger" id="edDelete">Löschen</button>
+      <button type="button" class="btn" id="edDup">Duplizieren</button>
+      <span class="grow"></span>
+      <button type="button" class="btn" id="edCancel">Abbrechen</button>
+      <button type="submit" class="btn primary" id="edSave">Speichern</button>
+    </div>
+  </form>
+</dialog>
+
+<datalist id="speciesList"></datalist>
+<datalist id="moveList"></datalist>
+<datalist id="ballList"></datalist>
+<datalist id="gameList"></datalist>
+<div class="toast" id="toast" role="status"></div>
+
+<script>
+"use strict";
+/* ---------- Feste Tabellen ---------- */
+const TYPES = [null,
+  ["Normal","normal"],["Kampf","kampf"],["Flug","flug"],["Gift","gift"],["Boden","boden"],["Gestein","gestein"],
+  ["Käfer","kaefer"],["Geist","geist"],["Stahl","stahl"],["Feuer","feuer"],["Wasser","wasser"],["Pflanze","pflanze"],
+  ["Elektro","elektro"],["Psycho","psycho"],["Eis","eis"],["Drache","drache"],["Unlicht","unlicht"],["Fee","fee"],["Stellar","stellar"]];
+const STATS = ["KP","Angriff","Verteidigung","Sp.-Angriff","Sp.-Vert.","Initiative"];
+// [Name, +Wert-Index, -Wert-Index]  (0 = KP wird nie verändert)
+const NATURES = [
+  ["Robust",0,0],["Solo",1,2],["Mutig",1,5],["Hart",1,3],["Frech",1,4],
+  ["Kühn",2,1],["Sacht",0,0],["Locker",2,5],["Pfiffig",2,3],["Lasch",2,4],
+  ["Scheu",5,1],["Hastig",5,2],["Ernst",0,0],["Froh",5,3],["Naiv",5,4],
+  ["Mäßig",3,1],["Mild",3,2],["Ruhig",3,5],["Zaghaft",0,0],["Hitzig",3,4],
+  ["Still",4,1],["Zart",4,2],["Forsch",4,5],["Sorgsam",4,3],["Kauzig",0,0]];
+const BALLS = ["Pokéball","Superball","Hyperball","Meisterball","Safariball","Netzball","Tauchball","Nestball","Wiederball","Timerball","Luxusball","Premierball","Finsterball","Heilball","Flottball","Jubelball","Turboball","Levelball","Köderball","Schwerball","Sympaball","Freundesball","Mondball","Traumball","Ultraball"];
+const GAMES = ["Karmesin","Purpur","Legenden: Z-A","Legenden: Arceus","Schwert","Schild","Strahlender Diamant","Leuchtende Perle","Let's Go, Pikachu!","Let's Go, Evoli!","Pokémon GO","Sonne","Mond","Ultrasonne","Ultramond","X","Y","Omega Rubin","Alpha Saphir","Virtual Console"];
+
+const CSV_BASE = "https://raw.githubusercontent.com/PokeAPI/pokeapi/master/data/v2/csv/";
+const SPRITE = (id, shiny) => `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${shiny ? "shiny/" : ""}${id}.png`;
+const DATA_KEY = "pkbox.dex.v1", BOX_KEY = "pkbox.mons.v1", THEME_KEY = "pkbox.theme";
+const DE = 6, EN = 9;
+
+/* ---------- Hilfen ---------- */
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const store = {
+  get(k, d){ try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch { return d; } },
+  set(k, v){ try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch { return false; } }
+};
+function toast(msg){ const t = $("#toast"); t.textContent = msg; t.classList.add("on"); clearTimeout(toast.h); toast.h = setTimeout(() => t.classList.remove("on"), 2200); }
+function typeChip(id){ const t = TYPES[id]; return t ? `<span class="type" style="background:var(--t-${t[1]})">${t[0]}</span>` : ""; }
+
+function parseCSV(text){
+  const rows = []; let row = [], f = "", q = false;
+  for (let i = 0; i < text.length; i++){
+    const c = text[i];
+    if (q){ if (c === '"'){ if (text[i+1] === '"'){ f += '"'; i++; } else q = false; } else f += c; }
+    else if (c === '"') q = true;
+    else if (c === ","){ row.push(f); f = ""; }
+    else if (c === "\n"){ row.push(f); rows.push(row); row = []; f = ""; }
+    else if (c !== "\r") f += c;
+  }
+  if (f !== "" || row.length){ row.push(f); rows.push(row); }
+  const head = rows.shift();
+  return rows.filter(r => r.length > 1).map(r => Object.fromEntries(head.map((h, i) => [h, r[i]])));
+}
+
+/* ---------- Pokédex-Daten laden (einmalig, dann zwischengespeichert) ---------- */
+let DEX = null;          // {p:[...], a:{}, m:{}}
+let BYID = new Map(), BYNAME = new Map(), MOVENAME = new Map();
+
+async function loadDex(force){
+  if (!force){ const c = store.get(DATA_KEY, null); if (c && c.p) return useDex(c); }
+  const files = ["pokemon","pokemon_species_names","pokemon_types","pokemon_abilities","ability_names","pokemon_stats","pokemon_forms","pokemon_form_names","move_names","moves"];
+  showBanner(`<span>Lade Pokédex-Daten (einmalig, ca. 3 MB)…</span><div class="progress"><i id="prog"></i></div>`);
+  const out = {}; let done = 0;
+  try {
+    await Promise.all(files.map(async f => {
+      const r = await fetch(CSV_BASE + f + ".csv");
+      if (!r.ok) throw new Error(f + ": HTTP " + r.status);
+      out[f] = parseCSV(await r.text());
+      done++; const p = $("#prog"); if (p) p.style.width = (done / files.length * 100) + "%";
+    }));
+  } catch (e) {
+    const cached = store.get(DATA_KEY, null);
+    showBanner(`<span>Die Pokédex-Daten konnten nicht geladen werden (${esc(e.message)}). Prüfe die Internetverbindung und versuche es erneut.</span><button class="btn small" onclick="loadDex(true)">Erneut versuchen</button>`, true);
+    if (cached && cached.p) useDex(cached, true);
+    return;
+  }
+  const dex = buildDex(out);
+  if (!store.set(DATA_KEY, dex)) console.warn("Pokédex-Daten zu groß für den lokalen Speicher – werden bei jedem Start neu geladen.");
+  useDex(dex);
+  toast("Pokédex-Daten geladen");
+}
+
+function buildDex(d){
+  const nameOf = (rows, idKey, field = "name") => {
+    const de = {}, en = {};
+    for (const r of rows){ if (r.local_language_id == DE) de[r[idKey]] = r[field]; else if (r.local_language_id == EN) en[r[idKey]] = r[field]; }
+    return id => de[id] || en[id] || "";
+  };
+  const species = nameOf(d.pokemon_species_names, "pokemon_species_id");
+  const formNameDE = {}, formNameEN = {};
+  for (const r of d.pokemon_form_names){
+    if (!r.pokemon_name) continue;
+    if (r.local_language_id == DE) formNameDE[r.pokemon_form_id] = r.pokemon_name;
+    else if (r.local_language_id == EN) formNameEN[r.pokemon_form_id] = r.pokemon_name;
+  }
+  const defaultForm = {};
+  for (const f of d.pokemon_forms) if (f.is_default === "1") defaultForm[f.pokemon_id] = f;
+  const types = {}, abil = {}, stats = {};
+  for (const r of d.pokemon_types) (types[r.pokemon_id] ||= []).push([+r.slot, +r.type_id]);
+  for (const r of d.pokemon_abilities) (abil[r.pokemon_id] ||= []).push([+r.slot, +r.ability_id, r.is_hidden === "1" ? 1 : 0]);
+  for (const r of d.pokemon_stats) (stats[r.pokemon_id] ||= [])[+r.stat_id - 1] = +r.base_stat;
+
+  const p = [];
+  for (const r of d.pokemon){
+    const id = +r.id, form = defaultForm[id];
+    if (form && form.is_battle_only === "1") continue;   // Mega, Gigadynamax usw.
+    if (/totem/.test(r.identifier)) continue;
+    let name = species(r.species_id);
+    if (r.is_default !== "1"){
+      const fn = form && (formNameDE[form.id] || formNameEN[form.id]);
+      name = fn || `${name} (${(form && form.form_identifier) || r.identifier})`;
+    }
+    p.push({
+      id, s: +r.species_id, n: name,
+      t: (types[id] || []).sort((a, b) => a[0] - b[0]).map(x => x[1]),
+      a: (abil[id] || []).sort((a, b) => a[0] - b[0]).map(x => [x[1], x[2]]),
+      b: stats[id] || [0,0,0,0,0,0]
+    });
+  }
+  const an = nameOf(d.ability_names, "ability_id"), a = {};
+  for (const r of d.ability_names) if (!a[r.ability_id]) a[r.ability_id] = an(r.ability_id);
+  const mn = nameOf(d.move_names, "move_id"), m = {};
+  for (const r of d.moves) if (+r.id < 10000){ const n = mn(r.id); if (n) m[r.id] = [n, +r.type_id]; }
+  return { v: 1, p, a, m, at: Date.now() };
+}
+
+function useDex(dex, quiet){
+  DEX = dex; BYID.clear(); BYNAME.clear(); MOVENAME.clear();
+  // gleiche Namen (z. B. mehrere Formen ohne eigenen Namen) eindeutig machen
+  const seen = {};
+  for (const x of dex.p){
+    let label = x.n; if (seen[label]) label = `${x.n} [${x.id}]`; seen[label] = 1; x.label = label;
+    BYID.set(x.id, x); BYNAME.set(label.toLowerCase(), x);
+  }
+  for (const [id, mv] of Object.entries(dex.m)) MOVENAME.set(mv[0].toLowerCase(), +id);
+  $("#speciesList").innerHTML = dex.p.map(x => `<option value="${esc(x.label)}">#${x.s}</option>`).join("");
+  $("#moveList").innerHTML = Object.values(dex.m).map(m => `<option value="${esc(m[0])}">`).join("");
+  if (!quiet) hideBanner();
+  render();
+}
+
+/* ---------- Banner ---------- */
+function showBanner(html, err){ const b = $("#banner"); b.hidden = false; b.innerHTML = `<div class="${err ? "err" : ""}">${html}</div>`; }
+function hideBanner(){ $("#banner").hidden = true; }
+
+/* ---------- Deine Pokémon ---------- */
+let MONS = store.get(BOX_KEY, []);
+function save(){ if (!store.set(BOX_KEY, MONS)) toast("Speichern fehlgeschlagen – Speicher voll?"); }
+const speciesOf = m => (m.pid && BYID.get(m.pid)) || null;
+const displayName = m => m.nick || (speciesOf(m)?.n) || m.species || "Unbekannt";
+const ivSum = m => (m.iv || []).reduce((s, v, i) => s + (m.ht?.[i] ? 31 : (v === "" || v == null ? 0 : +v)), 0);
+const ivKnown = m => (m.iv || []).some(v => v !== "" && v != null);
+
+function calcStat(i, base, iv, ev, lvl, nat, pid){
+  if (!base) return null;
+  if (i === 0){ if (pid === 292) return 1; return Math.floor((2*base + iv + Math.floor(ev/4)) * lvl / 100) + lvl + 10; }
+  let v = Math.floor((2*base + iv + Math.floor(ev/4)) * lvl / 100) + 5;
+  const n = NATURES[nat]; if (n){ if (n[1] === i && n[2] !== i) v = Math.floor(v * 1.1); else if (n[2] === i && n[1] !== i) v = Math.floor(v * 0.9); }
+  return v;
+}
+function judge(iv){
+  if (iv === "" || iv == null) return "";
+  iv = +iv; return iv === 31 ? "Top" : iv === 30 ? "Fast top" : iv >= 26 ? "Sehr gut" : iv >= 16 ? "Gut" : iv >= 1 ? "Mäßig" : "Null";
+}
+
+/* ---------- Filter & Liste ---------- */
+function fillFilters(){
+  $("#fType").innerHTML = `<option value="">Alle Typen</option>` + TYPES.slice(1, 19).map((t, i) => `<option value="${i+1}">${t[0]}</option>`).join("");
+  $("#fNature").innerHTML = `<option value="">Alle Wesen</option>` + NATURES.map((n, i) => `<option value="${i}">${n[0]}</option>`).join("");
+  $("#eNature").innerHTML = `<option value="">– unbekannt –</option>` + NATURES.map((n, i) => `<option value="${i}">${n[0]}${n[1] ? ` (+${STATS[n[1]]}, −${STATS[n[2]]})` : " (neutral)"}</option>`).join("");
+  $("#eTera").innerHTML = `<option value="">–</option>` + TYPES.slice(1).map((t, i) => `<option value="${i+1}">${t[0]}</option>`).join("");
+  $("#ballList").innerHTML = BALLS.map(b => `<option value="${b}">`).join("");
+  $("#gameList").innerHTML = GAMES.map(g => `<option value="${esc(g)}">`).join("");
+}
+function fillBoxFilter(){
+  const cur = $("#fBox").value;
+  const boxes = [...new Set(MONS.map(m => m.box).filter(Boolean))].sort((a, b) => String(a).localeCompare(String(b), "de", {numeric:true}));
+  $("#fBox").innerHTML = `<option value="">Alle Boxen</option>` + boxes.map(b => `<option${b === cur ? " selected" : ""}>${esc(b)}</option>`).join("");
+}
+
+function render(){
+  fillBoxFilter();
+  const q = $("#q").value.trim().toLowerCase(), ft = +$("#fType").value || 0, fn = $("#fNature").value, fb = $("#fBox").value, fs = $("#fShiny").checked;
+  let list = MONS.filter(m => {
+    const sp = speciesOf(m);
+    if (ft && !(sp?.t || []).includes(ft)) return false;
+    if (fn !== "" && String(m.nature) !== fn) return false;
+    if (fb && m.box !== fb) return false;
+    if (fs && !m.shiny) return false;
+    if (q){
+      const hay = [displayName(m), sp?.n, m.species, m.notes, (m.tags || []).join(" "), m.ot, m.game].join(" ").toLowerCase();
+      if (!hay.includes(q)) return false;
+    }
+    return true;
+  });
+  const s = $("#sort").value;
+  const dexNo = m => speciesOf(m)?.s ?? 99999;
+  const cmp = {
+    dex: (a, b) => dexNo(a) - dexNo(b) || (a.pid || 0) - (b.pid || 0),
+    name: (a, b) => displayName(a).localeCompare(displayName(b), "de"),
+    level: (a, b) => (b.level || 0) - (a.level || 0),
+    iv: (a, b) => ivSum(b) - ivSum(a),
+    box: (a, b) => String(a.box || "~").localeCompare(String(b.box || "~"), "de", {numeric:true}) || (a.slot || 99) - (b.slot || 99),
+    added: (a, b) => (b.added || 0) - (a.added || 0)
+  }[s];
+  list.sort(cmp);
+
+  $("#cTotal").textContent = MONS.length;
+  const owned = new Set(MONS.map(m => speciesOf(m)?.s).filter(Boolean));
+  $("#cSpecies").textContent = owned.size;
+  const maxSpecies = DEX ? new Set(DEX.p.map(x => x.s)).size : 0;
+  $("#cSpeciesLbl").textContent = maxSpecies ? `von ${maxSpecies} Arten` : "verschiedene Arten";
+  $("#cShiny").textContent = MONS.filter(m => m.shiny).length;
+
+  const box = $("#box");
+  if (!MONS.length){
+    box.innerHTML = `<div class="empty" style="grid-column:1/-1"><h2>Deine Boxen sind noch leer</h2><p>Trag dein erstes Pokémon ein. Typen, Fähigkeiten und Basiswerte werden automatisch ergänzt, sobald du die Art auswählst.</p><button class="btn primary" onclick="openEditor()">Pokémon hinzufügen</button></div>`;
+    return;
+  }
+  if (!list.length){ box.innerHTML = `<div class="empty" style="grid-column:1/-1"><h2>Keine Treffer</h2><p>Kein Pokémon passt zu diesen Filtern. Ändere die Suche oder setze die Filter zurück.</p><button class="btn" onclick="resetFilters()">Filter zurücksetzen</button></div>`; return; }
+  box.innerHTML = list.map(m => {
+    const sp = speciesOf(m), ivp = ivKnown(m) ? Math.round(ivSum(m) / 186 * 100) : null;
+    const nat = NATURES[m.nature]?.[0];
+    const g = m.gender === "m" ? " ♂" : m.gender === "f" ? " ♀" : "";
+    return `<button class="mon" data-id="${m.id}" aria-label="${esc(displayName(m))} bearbeiten">
+      ${m.box ? `<span class="loc">Box ${esc(m.box)}${m.slot ? `/${m.slot}` : ""}</span>` : ""}
+      ${m.shiny ? `<span class="star" title="Shiny">★</span>` : ""}
+      <img class="sprite" loading="lazy" alt="" src="${sp ? SPRITE(sp.id, m.shiny) : "data:image/gif;base64,R0lGODlhAQABAAAAACw="}" onerror="this.style.visibility='hidden'">
+      <span class="name">${esc(displayName(m))}${g}</span>
+      <span class="sub"><span>${m.nick && sp ? esc(sp.n) : (sp ? "#" + sp.s : "")}</span><span>Lv. ${m.level || "?"}</span></span>
+      <span class="types">${(sp?.t || []).map(typeChip).join("")}</span>
+      <span class="sub"><span>${nat || "Wesen ?"}</span><span>${ivp != null ? `DV ${ivSum(m)}/186` : "DV ?"}</span></span>
+      ${ivp != null ? `<span class="ivbar" title="${ivp} % der maximalen DV"><i style="width:${ivp}%"></i></span>` : ""}
+    </button>`;
+  }).join("");
+}
+function resetFilters(){ $("#q").value = ""; $("#fType").value = ""; $("#fNature").value = ""; $("#fBox").value = ""; $("#fShiny").checked = false; render(); }
+
+/* ---------- Editor ---------- */
+let editing = null;
+const ed = $("#ed");
+function buildStatRows(){
+  $("#statRows").innerHTML = STATS.map((s, i) => `<tr>
+    <td id="sn${i}">${s}</td>
+    <td><span class="base"><span id="sb${i}">–</span><i id="sbb${i}"></i></span></td>
+    <td><input type="number" min="0" max="31" id="iv${i}" aria-label="DV ${s}"> <span class="judge" id="ij${i}"></span></td>
+    <td><input type="checkbox" id="ht${i}" aria-label="Supertraining ${s}" title="Supertraining"></td>
+    <td><input type="number" min="0" max="252" step="4" id="ev${i}" aria-label="FP ${s}"></td>
+    <td class="val" id="sv${i}">–</td></tr>`).join("");
+}
+function currentSpecies(){ return BYNAME.get($("#eSpecies").value.trim().toLowerCase()) || null; }
+
+function refreshEditor(){
+  const sp = currentSpecies(), shiny = $("#eShiny").checked;
+  $("#edSprite").src = sp ? SPRITE(sp.id, shiny) : "data:image/gif;base64,R0lGODlhAQABAAAAACw=";
+  $("#edTypes").innerHTML = sp ? sp.t.map(typeChip).join("") : (DEX ? `<span class="hint">Art auswählen, um Typen und Werte zu sehen</span>` : `<span class="hint">Pokédex-Daten nicht geladen – Werte ohne Berechnung</span>`);
+  $("#edTitle").textContent = $("#eNick").value || sp?.n || (editing ? "Pokémon bearbeiten" : "Neues Pokémon");
+  // Fähigkeiten
+  const sel = $("#eAbility"), prev = sel.dataset.want ?? sel.value;
+  if (sp && sp.a.length){
+    sel.innerHTML = `<option value="">– unbekannt –</option>` + sp.a.map(([id, h]) => `<option value="${id}">${esc(DEX.a[id] || "#" + id)}${h ? " (versteckt)" : ""}</option>`).join("");
+  } else {
+    sel.innerHTML = `<option value="">– unbekannt –</option>` + (prev && DEX?.a[prev] ? `<option value="${prev}">${esc(DEX.a[prev])}</option>` : "");
+  }
+  if (prev && [...sel.options].some(o => o.value === prev)) sel.value = prev;
+  delete sel.dataset.want;
+  // Werte
+  const lvl = Math.min(100, Math.max(1, +$("#eLevel").value || 50));
+  const nat = $("#eNature").value === "" ? -1 : +$("#eNature").value, n = NATURES[nat];
+  let ivT = 0, ivAny = false, evT = 0;
+  for (let i = 0; i < 6; i++){
+    const base = sp?.b[i] || 0, ivRaw = $("#iv" + i).value, ht = $("#ht" + i).checked;
+    const iv = ht ? 31 : (ivRaw === "" ? 31 : Math.min(31, Math.max(0, +ivRaw)));
+    const ev = Math.min(252, Math.max(0, +$("#ev" + i).value || 0));
+    if (ivRaw !== "" || ht){ ivAny = true; ivT += iv; }
+    evT += ev;
+    $("#sb" + i).textContent = base || "–";
+    $("#sbb" + i).style.width = base ? Math.min(60, base / 255 * 60) + "px" : "0";
+    $("#ij" + i).textContent = ht ? "Supertr." : judge(ivRaw);
+    const v = calcStat(i, base, iv, ev, lvl, nat, sp?.id);
+    $("#sv" + i).textContent = v == null ? "–" : v + (ivRaw === "" && !ht ? "*" : "");
+    const name = $("#sn" + i);
+    name.className = n && n[1] === i && n[2] !== i ? "plus" : n && n[2] === i && n[1] !== i ? "minus" : "";
+    name.textContent = STATS[i] + (name.className === "plus" ? " ↑" : name.className === "minus" ? " ↓" : "");
+  }
+  $("#ivTotal").textContent = ivAny ? `DV gesamt: ${ivT} / 186` : "DV gesamt: –";
+  const evEl = $("#evTotal"); evEl.textContent = `FP gesamt: ${evT} / 510`; evEl.className = evT > 510 ? "over" : "";
+}
+
+function openEditor(id){
+  if (!ed.dataset.built){ buildStatRows(); ed.dataset.built = 1; ed.addEventListener("input", refreshEditor); ed.addEventListener("change", refreshEditor); }
+  editing = id ? MONS.find(m => m.id === id) : null;
+  const m = editing || { level: 50, iv: ["","","","","",""], ev: [0,0,0,0,0,0], moves: [] };
+  const sp = speciesOf(m);
+  $("#eSpecies").value = sp ? sp.label : (m.species || "");
+  $("#eNick").value = m.nick || ""; $("#eLevel").value = m.level ?? "";
+  $("#eGender").value = m.gender || ""; $("#eNature").value = m.nature ?? "";
+  $("#eAbility").dataset.want = m.ability ?? "";
+  $("#eTera").value = m.tera ?? ""; $("#eItem").value = m.item || ""; $("#eBall").value = m.ball || "";
+  $("#eGame").value = m.game || ""; $("#eOT").value = m.ot || ""; $("#eTID").value = m.tid || "";
+  $("#eShiny").checked = !!m.shiny; $("#eAlpha").checked = !!m.alpha; $("#eGmax").checked = !!m.gmax;
+  for (let i = 0; i < 4; i++) $("#eM" + (i+1)).value = m.moves?.[i] || "";
+  for (let i = 0; i < 6; i++){ $("#iv" + i).value = m.iv?.[i] ?? ""; $("#ev" + i).value = m.ev?.[i] || ""; $("#ht" + i).checked = !!m.ht?.[i]; }
+  $("#eBox").value = m.box || ""; $("#eSlot").value = m.slot || ""; $("#eTags").value = (m.tags || []).join(", "); $("#eNotes").value = m.notes || "";
+  $("#edDelete").hidden = !editing; $("#edDup").hidden = !editing;
+  refreshEditor();
+  ed.showModal();
+  if (!editing) $("#eSpecies").focus();
+}
+
+function readEditor(){
+  const sp = currentSpecies(), raw = $("#eSpecies").value.trim();
+  const num = (v, lo, hi) => v === "" ? "" : Math.min(hi, Math.max(lo, Math.round(+v)));
+  return {
+    pid: sp?.id || null, species: sp ? "" : raw,
+    nick: $("#eNick").value.trim(), level: num($("#eLevel").value, 1, 100),
+    gender: $("#eGender").value, nature: $("#eNature").value === "" ? null : +$("#eNature").value,
+    ability: $("#eAbility").value || null, tera: $("#eTera").value || null,
+    item: $("#eItem").value.trim(), ball: $("#eBall").value.trim(), game: $("#eGame").value.trim(),
+    ot: $("#eOT").value.trim(), tid: $("#eTID").value.trim(),
+    shiny: $("#eShiny").checked, alpha: $("#eAlpha").checked, gmax: $("#eGmax").checked,
+    moves: [1,2,3,4].map(i => $("#eM" + i).value.trim()).filter(Boolean),
+    iv: [0,1,2,3,4,5].map(i => num($("#iv" + i).value, 0, 31)),
+    ht: [0,1,2,3,4,5].map(i => $("#ht" + i).checked),
+    ev: [0,1,2,3,4,5].map(i => +num($("#ev" + i).value || 0, 0, 252)),
+    box: $("#eBox").value.trim(), slot: $("#eSlot").value ? +$("#eSlot").value : null,
+    tags: $("#eTags").value.split(",").map(t => t.trim()).filter(Boolean), notes: $("#eNotes").value.trim()
+  };
+}
+
+$("#edForm").addEventListener("submit", e => {
+  e.preventDefault();
+  const data = readEditor();
+  if (!data.pid && !data.species){ $("#eSpecies").focus(); toast("Gib an, welches Pokémon es ist"); return; }
+  if (!data.pid && DEX){ if (!confirm(`„${data.species}“ steht nicht im Pokédex. Trotzdem ohne automatische Daten speichern?`)) return; }
+  if (editing) Object.assign(editing, data);
+  else MONS.push({ id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now() + Math.random()), added: Date.now(), ...data });
+  save(); ed.close(); render(); toast(editing ? "Änderungen gespeichert" : "Pokémon hinzugefügt");
+});
+$("#edClose").onclick = $("#edCancel").onclick = () => ed.close();
+$("#edDelete").onclick = () => {
+  if (!editing || !confirm(`${displayName(editing)} wirklich löschen?`)) return;
+  MONS = MONS.filter(m => m !== editing); save(); ed.close(); render(); toast("Pokémon gelöscht");
+};
+$("#edDup").onclick = () => {
+  const copy = { ...readEditor(), id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now()), added: Date.now() };
+  MONS.push(copy); save(); render(); openEditor(copy.id); toast("Kopie angelegt");
+};
+
+/* ---------- Ereignisse ---------- */
+$("#addBtn").onclick = () => openEditor();
+$("#box").addEventListener("click", e => { const c = e.target.closest(".mon"); if (c) openEditor(c.dataset.id); });
+["#q","#fType","#fNature","#fBox","#fShiny","#sort"].forEach(s => $(s).addEventListener("input", render));
+$("#reloadData").onclick = () => loadDex(true);
+$("#exportBtn").onclick = () => {
+  const blob = new Blob([JSON.stringify({ app: "pkbox", version: 1, exported: new Date().toISOString(), pokemon: MONS }, null, 2)], { type: "application/json" });
+  const a = document.createElement("a"); a.href = URL.createObjectURL(blob);
+  a.download = `pokemon-boxen-${new Date().toISOString().slice(0, 10)}.json`; a.click(); URL.revokeObjectURL(a.href);
+  toast("Sicherung exportiert");
+};
+$("#importBtn").onclick = () => $("#importFile").click();
+$("#importFile").onchange = async e => {
+  const f = e.target.files[0]; e.target.value = ""; if (!f) return;
+  try {
+    const j = JSON.parse(await f.text()), list = Array.isArray(j) ? j : j.pokemon;
+    if (!Array.isArray(list)) throw new Error("Keine Pokémon-Liste gefunden");
+    const replace = MONS.length && confirm(`${list.length} Pokémon gefunden.\n\nOK = vorhandene ${MONS.length} Einträge ersetzen\nAbbrechen = zusammenführen`);
+    if (replace) MONS = list;
+    else { const ids = new Set(MONS.map(m => m.id)); for (const m of list) if (!ids.has(m.id)) MONS.push(m); }
+    save(); render(); toast("Sicherung importiert");
+  } catch (err) { toast("Import fehlgeschlagen: " + err.message); }
+};
+$("#themeBtn").onclick = () => {
+  const dark = matchMedia("(prefers-color-scheme: dark)").matches;
+  const cur = document.documentElement.dataset.theme || (dark ? "dark" : "light");
+  const next = cur === "dark" ? "light" : "dark";
+  document.documentElement.dataset.theme = next; store.set(THEME_KEY, next);
+};
+
+/* ---------- Start ---------- */
+const savedTheme = store.get(THEME_KEY, null); if (savedTheme) document.documentElement.dataset.theme = savedTheme;
+fillFilters();
+render();
+loadDex(false);
+</script>
+</body>
+</html>
