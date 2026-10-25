@@ -99,7 +99,8 @@ dialog::backdrop{background:rgba(10,14,22,.55)}
 .ed-head .x{margin-left:auto}
 .ed-body{padding:20px;display:grid;grid-template-columns:1fr 1fr;gap:20px 28px}
 @media (max-width:760px){.ed-body{grid-template-columns:1fr}}
-.ed-body section{display:grid;gap:10px;align-content:start}
+.ed-body section{display:grid;gap:10px;align-content:start;min-width:0}
+.ed-body section > *{min-width:0}
 .ed-body h3{font-size:17px;padding-bottom:4px;border-bottom:1px solid var(--line)}
 .f{display:grid;gap:3px;font-size:14px;color:var(--ink-soft)}
 .f2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
@@ -111,30 +112,39 @@ dialog::backdrop{background:rgba(10,14,22,.55)}
 
 /* Wertetabelle */
 .stats{width:100%;border-collapse:collapse;font-size:14px}
+.statwrap{overflow-x:auto}
+.stats .svin::placeholder{font-weight:400;font-size:14px}
 .stats th{text-align:left;font-weight:700;color:var(--ink-soft);padding:4px 4px 6px;font-size:13px}
 .stats td{padding:3px 4px;vertical-align:middle}
 .stats td:first-child{white-space:nowrap;font-weight:700}
 .stats input[type=number]{min-height:32px;padding:4px 6px;width:62px}
 .stats .val{white-space:nowrap;font-family:"Bricolage Grotesque",sans-serif;font-weight:700;font-size:16px;text-align:right}
-.stats select{min-height:32px;padding:4px 6px;width:auto;max-width:150px}
+.stats select{min-height:32px;padding:4px 4px;width:auto;max-width:108px}
 .pips{display:flex;gap:3px;align-items:flex-end;height:22px}
 .pips i{flex:1;background:var(--slot);border-radius:2px 2px 0 0;position:relative;height:100%}
 .pips i b{position:absolute;left:0;right:0;bottom:0;background:var(--good);border-radius:2px 2px 0 0}
 .pips i.unk b{background:transparent}
 .pips i.ht b{background:var(--shiny)}
 .pot{font-weight:700;color:var(--ink)}
-.potrow{display:grid;grid-template-columns:auto 1fr;gap:6px 10px;align-items:center;margin-top:8px;font-size:14px;color:var(--ink-soft)}
-.potrow select{width:auto}
+.potrow{display:grid;grid-template-columns:auto minmax(0,1fr);gap:6px 10px;align-items:center;margin-top:8px;font-size:14px;color:var(--ink-soft)}
+.potrow select{width:100%;min-width:0}
+@media (max-width:520px){.potrow{grid-template-columns:1fr}.stats th:nth-child(2),.stats td:nth-child(2){display:none}.ed-head img{width:52px;height:52px}.stats select{max-width:88px}.stats .svin{width:54px}.stats input[type=number]{width:42px}.stats td,.stats th{padding-left:2px;padding-right:2px}.ed-body{padding:12px}}
 .warn{color:var(--bad)}
+.stats .svin{width:76px;text-align:right;font-family:"Bricolage Grotesque",sans-serif;font-weight:700}
+.stats .dv{display:block;font-size:12px;color:var(--ink-soft);text-align:right;white-space:nowrap;font-weight:400;font-family:"Atkinson Hyperlegible",sans-serif}
+.stats .dv.warn{color:var(--bad)}
+.potrow select#eChar{max-width:100%}
 .plus{color:var(--bad)} .minus{color:var(--accent)}
 .base{display:flex;align-items:center;gap:6px}
-.base i{display:block;height:6px;border-radius:3px;background:var(--ink-soft);opacity:.5}
+.base i{display:block;max-width:30px;height:6px;border-radius:3px;background:var(--ink-soft);opacity:.5}
 .totals{display:flex;justify-content:space-between;font-size:14px;color:var(--ink-soft);margin-top:6px}
 .totals .over{color:var(--bad);font-weight:700}
 .abil-desc{font-size:13px;color:var(--ink-soft)}
 .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--ink);color:var(--paper);padding:10px 18px;border-radius:999px;font-weight:700;opacity:0;transition:opacity .2s;pointer-events:none;z-index:50}
 .toast.on{opacity:1}
 @media (prefers-reduced-motion: reduce){*{transition:none!important}}
+.sm{display:none}
+@media (max-width:520px){.lg{display:none}.sm{display:inline}}
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
 </style>
 </head>
@@ -179,6 +189,7 @@ dialog::backdrop{background:rgba(10,14,22,.55)}
         <option value="iv">Potential (hoch zuerst)</option>
         <option value="box">Box und Platz</option>
         <option value="added">Zuletzt hinzugefügt</option>
+        <option value="deposit">Lagerdatum (neueste zuerst)</option>
       </select>
     </label>
     <hr>
@@ -225,24 +236,32 @@ dialog::backdrop{background:rgba(10,14,22,.55)}
           </label>
           <label class="f">Wesen <select id="eNature"></select></label>
         </div>
-        <label class="f">Fähigkeit <select id="eAbility"></select></label>
         <div class="f2">
+          <label class="f">Fähigkeit <select id="eAbility"></select></label>
           <label class="f">Tera-Typ <select id="eTera"></select></label>
-          <label class="f">Getragenes Item <input type="text" id="eItem"></label>
-        </div>
-        <div class="f2">
-          <label class="f">Ball <input type="text" id="eBall" list="ballList"></label>
-          <label class="f">Herkunftsspiel <input type="text" id="eGame" list="gameList"></label>
-        </div>
-        <div class="f2">
-          <label class="f">Originaltrainer (OT) <input type="text" id="eOT"></label>
-          <label class="f">ID-Nr. <input type="text" id="eTID" inputmode="numeric"></label>
         </div>
         <div class="check-row" style="display:flex;gap:18px;flex-wrap:wrap">
           <label class="check"><input type="checkbox" id="eShiny"> Shiny</label>
           <label class="check"><input type="checkbox" id="eAlpha"> Alpha</label>
           <label class="check"><input type="checkbox" id="eGmax"> Gigadynamax-fähig</label>
         </div>
+        <h3>Herkunft</h3>
+        <div class="f2">
+          <label class="f">ID-Nr. <input type="text" id="eTID" inputmode="numeric" list="tidList" autocomplete="off"></label>
+          <label class="f">Originaltrainer (OT) <input type="text" id="eOT"></label>
+        </div>
+        <p class="hint" id="tidHint" hidden></p>
+        <div class="f2">
+          <label class="f">Herkunft <input type="text" id="eOrigin" list="originList" placeholder="Region, Home oder GO"></label>
+          <label class="f">Herkunftsspiel <input type="text" id="eGame" list="gameList"></label>
+        </div>
+        <label class="f">Fundort <input type="text" id="eLoc" list="locList" placeholder="z. B. Route 3"></label>
+        <div class="f3">
+          <label class="f">Getroffen am <input type="date" id="eMetDate"></label>
+          <label class="f">mit Level <input type="number" id="eMetLv" min="1" max="100"></label>
+          <label class="f">Ball <input type="text" id="eBall" list="ballList"></label>
+        </div>
+        <label class="f">Lagerdatum in Home <input type="date" id="eDeposit"></label>
         <h3>Attacken</h3>
         <div class="f2">
           <input type="text" id="eM1" list="moveList" aria-label="Attacke 1" placeholder="Attacke 1">
@@ -254,17 +273,21 @@ dialog::backdrop{background:rgba(10,14,22,.55)}
 
       <section>
         <h3>Werte</h3>
-        <table class="stats">
-          <thead><tr><th>Wert</th><th>Basis</th><th>Potential</th><th title="Supertraining">ST</th><th>FP (0–252)</th><th style="text-align:right">Ergebnis</th></tr></thead>
+        <div class="statwrap"><table class="stats">
+          <thead><tr><th>Wert</th><th>Basis</th><th>Potential</th><th title="Supertraining">ST</th><th>FP<span class="lg"> (0–252)</span></th><th style="text-align:right">Statuswert</th></tr></thead>
           <tbody id="statRows"></tbody>
-        </table>
+        </table></div>
         <div class="potrow">
           <label for="eIVT">Gesamtpotential</label>
           <select id="eIVT"></select>
           <span></span><span id="ivTotal" class="hint"></span>
         </div>
+        <div class="potrow">
+          <label for="eChar">Charakteristik</label>
+          <select id="eChar"></select>
+        </div>
         <div class="totals"><span></span><span id="evTotal">FP gesamt: 0 / 510</span></div>
-        <p class="hint">Trag das Potential so ein, wie Pokémon Home es anzeigt. Weil jede Stufe nur einen Bereich abdeckt, zeigt „Ergebnis“ den möglichen Wertebereich auf dem eingetragenen Level. ST = Supertraining (zählt als Höchstwert), FP = Fleißpunkte, optional.</p>
+        <p class="hint">Trag das Potential so ein, wie Pokémon Home es anzeigt. Die Statuswerte sind optional: Lässt du sie leer, steht dort der mögliche Bereich. Trägst du sie ein, grenzt das Tool die genauen DV ein. Das gilt auch für die Charakteristik. ST = Supertraining, FP = Fleißpunkte (optional).</p>
         <h3>Ablage und Notizen</h3>
         <div class="f2">
           <label class="f">Box in Home <input type="text" id="eBox" placeholder="z. B. 3 oder Shinys"></label>
@@ -289,6 +312,9 @@ dialog::backdrop{background:rgba(10,14,22,.55)}
 <datalist id="moveList"></datalist>
 <datalist id="ballList"></datalist>
 <datalist id="gameList"></datalist>
+<datalist id="originList"></datalist>
+<datalist id="locList"></datalist>
+<datalist id="tidList"></datalist>
 <div class="toast" id="toast" role="status"></div>
 
 <script>
@@ -299,6 +325,7 @@ const TYPES = [null,
   ["Käfer","kaefer"],["Geist","geist"],["Stahl","stahl"],["Feuer","feuer"],["Wasser","wasser"],["Pflanze","pflanze"],
   ["Elektro","elektro"],["Psycho","psycho"],["Eis","eis"],["Drache","drache"],["Unlicht","unlicht"],["Fee","fee"],["Stellar","stellar"]];
 const STATS = ["KP","Angriff","Verteidigung","Sp.-Angriff","Sp.-Vert.","Initiative"];
+const STATS_SHORT = ["KP","Angr.","Vert.","Sp.-Ang.","Sp.-Ver.","Init."];
 // [Name, +Wert-Index, -Wert-Index]  (0 = KP wird nie verändert)
 const NATURES = [
   ["Robust",0,0],["Solo",1,2],["Mutig",1,5],["Hart",1,3],["Frech",1,4],
@@ -309,6 +336,16 @@ const NATURES = [
 // Potential wie in Pokémon Home: [Bezeichnung, min, max]
 const IVR = [["Schlecht",0,0],["Nicht übel",1,15],["Gut",16,25],["Sehr gut",26,29],["Fantastisch",30,30],["Sensationell",31,31]];
 const IVT = [["Akzeptabel",0,90],["Groß",91,120],["Sehr groß",121,150],["Exzellent",151,186]];
+// Charakteristik: zeigt den höchsten DV (Wert) und seinen Rest bei Teilung durch 5
+const CHARS = [
+  ["Liebt es zu essen.","Nickt oft ein.","Schläft gern.","Macht oft Unordnung.","Mag es, sich zu entspannen."],
+  ["Ist stolz auf seine Stärke.","Prügelt sich gern.","Besitzt Temperament.","Liebt Kämpfe.","Ist impulsiv."],
+  ["Hat einen robusten Körper.","Kann Treffer gut verkraften.","Ist äußerst zäh.","Hat eine gute Ausdauer.","Ist beharrlich."],
+  ["Ist sehr neugierig.","Ist hinterhältig.","Ist äußerst gerissen.","Ist oft in Gedanken.","Ist sehr pedantisch."],
+  ["Besitzt einen starken Willen.","Ist etwas eitel.","Ist sehr aufsässig.","Hasst Niederlagen.","Ist dickköpfig."],
+  ["Ist gerne schnell unterwegs.","Achtet auf Geräusche.","Ist ungestüm und einfältig.","Ist ein bisschen albern.","Flüchtet schnell."]];
+const ORIGINS = ["Kanto","Johto","Hoenn","Sinnoh","Einall","Kalos","Alola","Galar","Hisui","Paldea","Pokémon Home","Pokémon GO","Let's Go (Kanto)","Virtual Console"];
+const TR_KEY = "pkbox.trainers.v1";
 const BALLS = ["Pokéball","Superball","Hyperball","Meisterball","Safariball","Netzball","Tauchball","Nestball","Wiederball","Timerball","Luxusball","Premierball","Finsterball","Heilball","Flottball","Jubelball","Turboball","Levelball","Köderball","Schwerball","Sympaball","Freundesball","Mondball","Traumball","Ultraball"];
 const GAMES = ["Karmesin","Purpur","Legenden: Z-A","Legenden: Arceus","Schwert","Schild","Strahlender Diamant","Leuchtende Perle","Let's Go, Pikachu!","Let's Go, Evoli!","Pokémon GO","Sonne","Mond","Ultrasonne","Ultramond","X","Y","Omega Rubin","Alpha Saphir","Virtual Console"];
 
@@ -438,16 +475,42 @@ let MONS = store.get(BOX_KEY, []).map(migrate);
 function save(){ if (!store.set(BOX_KEY, MONS)) toast("Speichern fehlgeschlagen – Speicher voll?"); }
 const speciesOf = m => (m.pid && BYID.get(m.pid)) || null;
 const displayName = m => m.nick || (speciesOf(m)?.n) || m.species || "Unbekannt";
-// Bereich eines Einzelwerts: Supertraining = 31, unbekannt = 0–31
-const ivRange = (m, i) => m.ht?.[i] ? [31, 31] : (m.ivr?.[i] != null ? IVR[m.ivr[i]].slice(1) : [0, 31]);
-const ivSumRange = m => [0,1,2,3,4,5].reduce((s, i) => { const r = ivRange(m, i); return [s[0] + r[0], s[1] + r[1]]; }, [0, 0]);
-const ivKnown = m => m.ivt != null || (m.ivr || []).some(v => v != null) || (m.ht || []).some(Boolean);
+// Mögliche echte DV je Wert aus Potential-Stufe, Statuswert und Charakteristik
+function ivCandidates(m){
+  const sp = speciesOf(m), lvl = +m.level || 0, nat = m.nature ?? -1;
+  const S = [0,1,2,3,4,5].map(i => {
+    let s = []; for (let v = 0; v <= 31; v++) s.push(v);
+    const r = m.ivr?.[i]; if (r != null) s = s.filter(v => v >= IVR[r][1] && v <= IVR[r][2]);
+    const sv = m.sv?.[i];
+    if (sv && sp && lvl && !m.ht?.[i]) s = s.filter(v => calcStat(i, sp.b[i], v, +(m.ev?.[i] || 0), lvl, nat, sp.id) === +sv);
+    return s;
+  });
+  if (m.char != null){
+    const c = Math.floor(m.char / 5), rest = m.char % 5;
+    S[c] = S[c].filter(v => v % 5 === rest);
+    for (let k = 0; k < 2; k++){
+      const maxC = S[c].length ? Math.max(...S[c]) : -1;
+      for (let i = 0; i < 6; i++) if (i !== c) S[i] = S[i].filter(v => v <= maxC);
+      const floor = Math.max(0, ...S.filter((_, i) => i !== c).map(s => s.length ? Math.min(...s) : 0));
+      S[c] = S[c].filter(v => v >= floor);
+    }
+  }
+  return S;
+}
+// wirksamer Bereich (Supertraining zählt als 31); null = Widerspruch
+function ivRange(m, i, S){
+  if (m.ht?.[i]) return [31, 31];
+  const s = (S || ivCandidates(m))[i];
+  return s.length ? [Math.min(...s), Math.max(...s)] : null;
+}
+const ivSumRange = m => { const S = ivCandidates(m); return [0,1,2,3,4,5].reduce((s, i) => { const r = ivRange(m, i, S) || [0, 31]; return [s[0] + r[0], s[1] + r[1]]; }, [0, 0]); };
+const ivKnown = m => m.ivt != null || m.char != null || (m.ivr || []).some(v => v != null) || (m.ht || []).some(Boolean) || (m.sv || []).some(Boolean);
 // Gesamtstufe: eingetragen, sonst aus Einzelwerten ableitbar (nur wenn eindeutig)
 function totalTier(m){
   if (m.ivt != null) return m.ivt;
   const [lo, hi] = ivSumRange(m);
   const t = IVT.findIndex(x => lo >= x[1] && hi <= x[2]);
-  return t >= 0 && (m.ivr || []).some(v => v != null) ? t : null;
+  return t >= 0 && ((m.ivr || []).some(v => v != null) || (m.sv || []).some(Boolean)) ? t : null;
 }
 const potScore = m => { const t = totalTier(m), r = ivSumRange(m); return (t ?? -1) * 1000 + (r[0] + r[1]); };
 // alte Sicherungen mit genauen DV-Zahlen in Potential-Stufen umwandeln
@@ -477,6 +540,9 @@ function fillFilters(){
   $("#eTera").innerHTML = `<option value="">–</option>` + TYPES.slice(1).map((t, i) => `<option value="${i+1}">${t[0]}</option>`).join("");
   $("#fPot").innerHTML = `<option value="">Alle</option>` + IVT.map((t, i) => `<option value="${i}">${t[0]}</option>`).join("") + `<option value="none">Nicht eingetragen</option>`;
   $("#eIVT").innerHTML = `<option value="">– nicht eingetragen –</option>` + IVT.map((t, i) => `<option value="${i}">${t[0]} (${t[1]}–${t[2]})</option>`).join("");
+  $("#eChar").innerHTML = `<option value="">– nicht eingetragen –</option>` + CHARS.map((row, s) => `<optgroup label="${STATS[s]} ist am höchsten">` +
+    row.map((t, r) => `<option value="${s * 5 + r}">${t} (DV ${[0,1,2,3,4,5,6].map(k => r + 5 * k).filter(v => v <= 31).join(", ")})</option>`).join("") + `</optgroup>`).join("");
+  $("#originList").innerHTML = ORIGINS.map(o => `<option value="${esc(o)}">`).join("");
   $("#ballList").innerHTML = BALLS.map(b => `<option value="${b}">`).join("");
   $("#gameList").innerHTML = GAMES.map(g => `<option value="${esc(g)}">`).join("");
 }
@@ -498,7 +564,7 @@ function render(){
     if (fs && !m.shiny) return false;
     if (fp !== "" && (fp === "none" ? totalTier(m) != null : String(totalTier(m)) !== fp)) return false;
     if (q){
-      const hay = [displayName(m), sp?.n, m.species, m.notes, (m.tags || []).join(" "), m.ot, m.game].join(" ").toLowerCase();
+      const hay = [displayName(m), sp?.n, m.species, m.notes, (m.tags || []).join(" "), m.ot, m.game, m.loc, m.origin].join(" ").toLowerCase();
       if (!hay.includes(q)) return false;
     }
     return true;
@@ -511,7 +577,8 @@ function render(){
     level: (a, b) => (b.level || 0) - (a.level || 0),
     iv: (a, b) => potScore(b) - potScore(a),
     box: (a, b) => String(a.box || "~").localeCompare(String(b.box || "~"), "de", {numeric:true}) || (a.slot || 99) - (b.slot || 99),
-    added: (a, b) => (b.added || 0) - (a.added || 0)
+    added: (a, b) => (b.added || 0) - (a.added || 0),
+    deposit: (a, b) => String(b.deposit || "").localeCompare(String(a.deposit || ""))
   }[s];
   list.sort(cmp);
 
@@ -530,9 +597,10 @@ function render(){
   if (!list.length){ box.innerHTML = `<div class="empty" style="grid-column:1/-1"><h2>Keine Treffer</h2><p>Kein Pokémon passt zu diesen Filtern. Ändere die Suche oder setze die Filter zurück.</p><button class="btn" onclick="resetFilters()">Filter zurücksetzen</button></div>`; return; }
   box.innerHTML = list.map(m => {
     const sp = speciesOf(m), tt = totalTier(m);
-    const pips = [0,1,2,3,4,5].map(i => { const ht = m.ht?.[i], r = m.ivr?.[i];
-      const h = ht ? 100 : r != null ? Math.max(8, (IVR[r][2] / 31) * 100) : 0;
-      return `<i class="${ht ? "ht" : r == null ? "unk" : ""}" title="${STATS[i]}: ${ht ? "Supertraining" : r != null ? IVR[r][0] : "unbekannt"}"><b style="height:${h}%"></b></i>`; }).join("");
+    const S = ivCandidates(m);
+    const pips = [0,1,2,3,4,5].map(i => { const ht = m.ht?.[i], rg = ivRange(m, i, S), unk = !ht && (!rg || (rg[0] === 0 && rg[1] === 31));
+      const h = unk ? 0 : Math.max(8, (rg[1] / 31) * 100);
+      return `<i class="${ht ? "ht" : unk ? "unk" : ""}" title="${STATS[i]}: ${ht ? "Supertraining" : unk ? "unbekannt" : rg[0] === rg[1] ? "DV " + rg[0] : `DV ${rg[0]}–${rg[1]}`}"><b style="height:${h}%"></b></i>`; }).join("");
     const nat = NATURES[m.nature]?.[0];
     const g = m.gender === "m" ? " ♂" : m.gender === "f" ? " ♀" : "";
     return `<button class="mon" data-id="${m.id}" aria-label="${esc(displayName(m))} bearbeiten">
@@ -559,7 +627,7 @@ function buildStatRows(){
     <td><select id="ivr${i}" aria-label="Potential ${s}"><option value="">?</option>${IVR.map((r, k) => `<option value="${k}">${r[0]}</option>`).join("")}</select></td>
     <td><input type="checkbox" id="ht${i}" aria-label="Supertraining ${s}" title="Supertraining"></td>
     <td><input type="number" min="0" max="252" step="4" id="ev${i}" aria-label="FP ${s}"></td>
-    <td class="val" id="sv${i}">–</td></tr>`).join("");
+    <td class="val"><input type="text" inputmode="numeric" class="svin" id="sv${i}" aria-label="Statuswert ${s} laut Home"><span class="dv" id="dv${i}"></span></td></tr>`).join("");
 }
 function currentSpecies(){ return BYNAME.get($("#eSpecies").value.trim().toLowerCase()) || null; }
 
@@ -580,25 +648,29 @@ function refreshEditor(){
   // Werte
   const lvl = Math.min(100, Math.max(1, +$("#eLevel").value || 50));
   const nat = $("#eNature").value === "" ? -1 : +$("#eNature").value, n = NATURES[nat];
-  let evT = 0;
-  const probe = { ivr: [], ht: [] };
+  const probe = { ...readEditor(), pid: sp?.id || null, level: lvl, nature: nat < 0 ? null : nat };
+  const S = ivCandidates(probe);
+  const evT = probe.ev.reduce((a, b) => a + b, 0);
   for (let i = 0; i < 6; i++){
-    const base = sp?.b[i] || 0, rv = $("#ivr" + i).value, ht = $("#ht" + i).checked;
-    probe.ivr[i] = rv === "" ? null : +rv; probe.ht[i] = ht;
+    const base = sp?.b[i] || 0, ht = probe.ht[i], ev = probe.ev[i];
     $("#ivr" + i).disabled = ht;
-    const [lo, hi] = ivRange(probe, i);
-    const ev = Math.min(252, Math.max(0, +$("#ev" + i).value || 0));
-    evT += ev;
     $("#sb" + i).textContent = base || "–";
-    $("#sbb" + i).style.width = base ? Math.min(60, base / 255 * 60) + "px" : "0";
-    const a = calcStat(i, base, lo, ev, lvl, nat, sp?.id), b = calcStat(i, base, hi, ev, lvl, nat, sp?.id);
-    $("#sv" + i).textContent = a == null ? "–" : a === b ? a : `${a}–${b}`;
+    $("#sbb" + i).style.width = base ? Math.min(30, base / 255 * 30) + "px" : "0";
+    const rg = ivRange(probe, i, S), dv = $("#dv" + i), inp = $("#sv" + i);
+    if (!rg){ inp.placeholder = ""; dv.textContent = "Widerspruch"; dv.className = "dv warn"; }
+    else {
+      const a = calcStat(i, base, rg[0], ev, lvl, nat, sp?.id), b = calcStat(i, base, rg[1], ev, lvl, nat, sp?.id);
+      inp.placeholder = a == null ? "" : a === b ? a : `${a}–${b}`;
+      dv.className = "dv";
+      dv.textContent = ht ? "Supertr." : (rg[0] === 0 && rg[1] === 31) ? "" : rg[0] === rg[1] ? `DV ${rg[0]}` : `DV ${rg[0]}–${rg[1]}`;
+    }
     const name = $("#sn" + i);
     name.className = n && n[1] === i && n[2] !== i ? "plus" : n && n[2] === i && n[1] !== i ? "minus" : "";
-    name.textContent = STATS[i] + (name.className === "plus" ? " ↑" : name.className === "minus" ? " ↓" : "");
+    const arrow = name.className === "plus" ? " ↑" : name.className === "minus" ? " ↓" : "";
+    name.innerHTML = `<span class="lg">${STATS[i]}${arrow}</span><span class="sm">${STATS_SHORT[i]}${arrow}</span>`;
   }
   const [slo, shi] = ivSumRange(probe), tv = $("#eIVT").value, tEl = $("#ivTotal");
-  const anyKnown = probe.ivr.some(v => v != null) || probe.ht.some(Boolean);
+  const anyKnown = probe.ivr.some(v => v != null) || probe.ht.some(Boolean) || probe.sv.some(Boolean) || probe.char != null;
   if (!anyKnown){ tEl.textContent = ""; tEl.className = "hint"; }
   else {
     const fits = IVT.filter(x => shi >= x[1] && slo <= x[2]).map(x => x[0]);
@@ -618,12 +690,16 @@ function openEditor(id){
   $("#eNick").value = m.nick || ""; $("#eLevel").value = m.level ?? "";
   $("#eGender").value = m.gender || ""; $("#eNature").value = m.nature ?? "";
   $("#eAbility").dataset.want = m.ability ?? "";
-  $("#eTera").value = m.tera ?? ""; $("#eItem").value = m.item || ""; $("#eBall").value = m.ball || "";
+  $("#eTera").value = m.tera ?? ""; $("#eBall").value = m.ball || "";
+  $("#eOrigin").value = m.origin || ""; $("#eLoc").value = m.loc || ""; $("#eMetDate").value = m.metDate || "";
+  $("#eMetLv").value = m.metLv || ""; $("#eDeposit").value = m.deposit || ""; $("#eChar").value = m.char ?? "";
+  $("#eOT").dataset.auto = ""; $("#tidHint").hidden = true;
+  fillLists();
   $("#eGame").value = m.game || ""; $("#eOT").value = m.ot || ""; $("#eTID").value = m.tid || "";
   $("#eShiny").checked = !!m.shiny; $("#eAlpha").checked = !!m.alpha; $("#eGmax").checked = !!m.gmax;
   for (let i = 0; i < 4; i++) $("#eM" + (i+1)).value = m.moves?.[i] || "";
   $("#eIVT").value = m.ivt ?? "";
-  for (let i = 0; i < 6; i++){ $("#ivr" + i).value = m.ivr?.[i] ?? ""; $("#ev" + i).value = m.ev?.[i] || ""; $("#ht" + i).checked = !!m.ht?.[i]; }
+  for (let i = 0; i < 6; i++){ $("#ivr" + i).value = m.ivr?.[i] ?? ""; $("#ev" + i).value = m.ev?.[i] || ""; $("#ht" + i).checked = !!m.ht?.[i]; $("#sv" + i).value = m.sv?.[i] || ""; }
   $("#eBox").value = m.box || ""; $("#eSlot").value = m.slot || ""; $("#eTags").value = (m.tags || []).join(", "); $("#eNotes").value = m.notes || "";
   $("#edDelete").hidden = !editing; $("#edDup").hidden = !editing;
   refreshEditor();
@@ -639,7 +715,11 @@ function readEditor(){
     nick: $("#eNick").value.trim(), level: num($("#eLevel").value, 1, 100),
     gender: $("#eGender").value, nature: $("#eNature").value === "" ? null : +$("#eNature").value,
     ability: $("#eAbility").value || null, tera: $("#eTera").value || null,
-    item: $("#eItem").value.trim(), ball: $("#eBall").value.trim(), game: $("#eGame").value.trim(),
+    ball: $("#eBall").value.trim(), game: $("#eGame").value.trim(),
+    origin: $("#eOrigin").value.trim(), loc: $("#eLoc").value.trim(), metDate: $("#eMetDate").value,
+    metLv: $("#eMetLv").value ? +num($("#eMetLv").value, 1, 100) : null, deposit: $("#eDeposit").value,
+    char: $("#eChar").value === "" ? null : +$("#eChar").value,
+    sv: [0,1,2,3,4,5].map(i => { const v = parseInt($("#sv" + i).value, 10); return v > 0 ? v : null; }),
     ot: $("#eOT").value.trim(), tid: $("#eTID").value.trim(),
     shiny: $("#eShiny").checked, alpha: $("#eAlpha").checked, gmax: $("#eGmax").checked,
     moves: [1,2,3,4].map(i => $("#eM" + i).value.trim()).filter(Boolean),
@@ -657,6 +737,7 @@ $("#edForm").addEventListener("submit", e => {
   const data = readEditor();
   if (!data.pid && !data.species){ $("#eSpecies").focus(); toast("Gib an, welches Pokémon es ist"); return; }
   if (!data.pid && DEX){ if (!confirm(`„${data.species}“ steht nicht im Pokédex. Trotzdem ohne automatische Daten speichern?`)) return; }
+  if (data.tid && data.ot){ TRAINERS[data.tid] = data.ot; store.set(TR_KEY, TRAINERS); }
   if (editing) Object.assign(editing, data);
   else MONS.push({ id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now() + Math.random()), added: Date.now(), ...data });
   save(); ed.close(); render(); toast(editing ? "Änderungen gespeichert" : "Pokémon hinzugefügt");
@@ -671,13 +752,28 @@ $("#edDup").onclick = () => {
   MONS.push(copy); save(); render(); openEditor(copy.id); toast("Kopie angelegt");
 };
 
+/* ---------- Trainer & Vorschlagslisten ---------- */
+let TRAINERS = store.get(TR_KEY, {});
+for (const m of MONS) if (m.tid && m.ot && !TRAINERS[m.tid]) TRAINERS[m.tid] = m.ot;
+function fillLists(){
+  $("#tidList").innerHTML = Object.entries(TRAINERS).map(([id, n]) => `<option value="${esc(id)}">${esc(n)}</option>`).join("");
+  const locs = [...new Set(MONS.map(m => m.loc).filter(Boolean))].sort((a, b) => a.localeCompare(b, "de"));
+  $("#locList").innerHTML = locs.map(l => `<option value="${esc(l)}">`).join("");
+}
+$("#eTID").addEventListener("input", () => {
+  const id = $("#eTID").value.trim(), ot = $("#eOT"), known = TRAINERS[id], hint = $("#tidHint");
+  if (known && (!ot.value || ot.dataset.auto)){ ot.value = known; ot.dataset.auto = "1"; hint.textContent = `Name zur ID ${id} übernommen.`; hint.hidden = false; }
+  else if (!known && ot.dataset.auto){ ot.value = ""; ot.dataset.auto = ""; hint.hidden = true; }
+});
+$("#eOT").addEventListener("input", () => { $("#eOT").dataset.auto = ""; $("#tidHint").hidden = true; });
+
 /* ---------- Ereignisse ---------- */
 $("#addBtn").onclick = () => openEditor();
 $("#box").addEventListener("click", e => { const c = e.target.closest(".mon"); if (c) openEditor(c.dataset.id); });
 ["#q","#fType","#fNature","#fBox","#fPot","#fShiny","#sort"].forEach(s => $(s).addEventListener("input", render));
 $("#reloadData").onclick = () => loadDex(true);
 $("#exportBtn").onclick = () => {
-  const blob = new Blob([JSON.stringify({ app: "pkbox", version: 1, exported: new Date().toISOString(), pokemon: MONS }, null, 2)], { type: "application/json" });
+  const blob = new Blob([JSON.stringify({ app: "pkbox", version: 1, exported: new Date().toISOString(), pokemon: MONS, trainers: TRAINERS }, null, 2)], { type: "application/json" });
   const a = document.createElement("a"); a.href = URL.createObjectURL(blob);
   a.download = `pokemon-boxen-${new Date().toISOString().slice(0, 10)}.json`; a.click(); URL.revokeObjectURL(a.href);
   toast("Sicherung exportiert");
@@ -690,6 +786,7 @@ $("#importFile").onchange = async e => {
     if (!Array.isArray(list)) throw new Error("Keine Pokémon-Liste gefunden");
     const replace = MONS.length && confirm(`${list.length} Pokémon gefunden.\n\nOK = vorhandene ${MONS.length} Einträge ersetzen\nAbbrechen = zusammenführen`);
     list.forEach(migrate);
+    if (j.trainers && typeof j.trainers === "object"){ TRAINERS = { ...j.trainers, ...TRAINERS }; store.set(TR_KEY, TRAINERS); }
     if (replace) MONS = list;
     else { const ids = new Set(MONS.map(m => m.id)); for (const m of list) if (!ids.has(m.id)) MONS.push(m); }
     save(); render(); toast("Sicherung importiert");
