@@ -160,6 +160,7 @@ dialog::backdrop{background:rgba(10,14,22,.55)}
   <button class="btn theme" id="themeBtn" aria-label="Darstellung wechseln"><span id="themeIcon" aria-hidden="true">☾</span> <span id="themeLbl">Dunkel</span></button>
 </header>
 
+<div class="banner" id="storeErr" role="alert" hidden></div>
 <div class="banner" id="banner" hidden></div>
 
 <main class="wrap">
@@ -201,7 +202,8 @@ dialog::backdrop{background:rgba(10,14,22,.55)}
     <div class="btnrow">
       <button class="btn small" id="reloadData">Pokédex-Daten neu laden</button>
     </div>
-    <p class="hint">Deine Einträge liegen nur in diesem Browser. Exportiere regelmäßig eine Sicherung, um sie auf ein anderes Gerät zu übertragen.</p>
+    <p class="hint">Deine Einträge liegen in einer Datenbank in diesem Browser, nur auf diesem Gerät. Exportiere regelmäßig eine Sicherung, auch um sie auf ein anderes Gerät zu übertragen.</p>
+    <p class="hint" id="storeInfo"></p>
   </aside>
 
   <section aria-label="Deine Pokémon">
@@ -345,22 +347,136 @@ const CHARS = [
   ["Besitzt einen starken Willen.","Ist etwas eitel.","Ist sehr aufsässig.","Hasst Niederlagen.","Ist dickköpfig."],
   ["Ist gerne schnell unterwegs.","Achtet auf Geräusche.","Ist ungestüm und einfältig.","Ist ein bisschen albern.","Flüchtet schnell."]];
 const ORIGINS = ["Kanto","Johto","Hoenn","Sinnoh","Einall","Kalos","Alola","Galar","Hisui","Paldea","Pokémon Home","Pokémon GO","Let's Go (Kanto)","Virtual Console"];
-const TR_KEY = "pkbox.trainers.v1";
 const BALLS = ["Pokéball","Superball","Hyperball","Meisterball","Safariball","Netzball","Tauchball","Nestball","Wiederball","Timerball","Luxusball","Premierball","Finsterball","Heilball","Flottball","Jubelball","Turboball","Levelball","Köderball","Schwerball","Sympaball","Freundesball","Mondball","Traumball","Ultraball"];
 const GAMES = ["Karmesin","Purpur","Legenden: Z-A","Legenden: Arceus","Schwert","Schild","Strahlender Diamant","Leuchtende Perle","Let's Go, Pikachu!","Let's Go, Evoli!","Pokémon GO","Sonne","Mond","Ultrasonne","Ultramond","X","Y","Omega Rubin","Alpha Saphir","Virtual Console"];
 
 const CSV_BASE = "https://raw.githubusercontent.com/PokeAPI/pokeapi/master/data/v2/csv/";
 const SPRITE = (id, shiny) => `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${shiny ? "shiny/" : ""}${id}.png`;
-const DATA_KEY = "pkbox.dex.v1", BOX_KEY = "pkbox.mons.v1", THEME_KEY = "pkbox.theme";
+// Speicher: alle Daten in IndexedDB "pokemon-home-tool"; im localStorage bleibt nur die Hell/Dunkel-Wahl
+const DB_NAME = "pokemon-home-tool", DB_VERSION = 1;
+const THEME_KEY = "pkbox.theme";
+// alte localStorage-Schlüssel (bis Version vom 25.10.2026) – werden einmalig übernommen und dann entfernt
+const LEGACY = { mons: "pkbox.mons.v1", trainers: "pkbox.trainers.v1", dex: "pkbox.dex.v1" };
 const DE = 6, EN = 9;
 
 /* ---------- Hilfen ---------- */
 const $ = s => document.querySelector(s);
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
-const store = {
+const ls = {
   get(k, d){ try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch { return d; } },
   set(k, v){ try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch { return false; } }
 };
+const newId = () => crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + "-" + Math.random().toString(36).slice(2);
+
+/* ---------- IndexedDB ---------- */
+const db = {
+  h: null,
+  open(){
+    return new Promise((res, rej) => {
+      if (!("indexedDB" in window)) return rej(new Error("Dieser Browser unterstützt keine IndexedDB"));
+      let r; try { r = indexedDB.open(DB_NAME, DB_VERSION); } catch (e) { return rej(e); }
+      r.onupgradeneeded = () => {
+        const d = r.result;
+        if (!d.objectStoreNames.contains("mons")) d.createObjectStore("mons", { keyPath: "id" });
+        if (!d.objectStoreNames.contains("meta")) d.createObjectStore("meta");
+      };
+      r.onsuccess = () => {
+        db.h = r.result;
+        db.h.onversionchange = () => { db.h.close(); db.h = null; DB_OK = false; showStoreError("Das Tool wurde in einem anderen Tab aktualisiert. Lade diese Seite neu, bevor du weiter änderst."); };
+        res(db.h);
+      };
+      r.onerror = () => rej(r.error || new Error("Datenbank konnte nicht geöffnet werden"));
+      r.onblocked = () => rej(new Error("Die Datenbank wird von einem anderen Tab dieses Tools blockiert. Schließe die anderen Tabs und lade neu"));
+    });
+  },
+  // führt fn in einer Transaktion aus; erfüllt sich erst, wenn die Daten wirklich geschrieben sind
+  tx(stores, mode, fn){
+    return new Promise((res, rej) => {
+      if (!db.h) return rej(new Error("Die Datenbank ist nicht geöffnet"));
+      let t, out;
+      try { t = db.h.transaction(stores, mode); } catch (e) { return rej(e); }
+      t.oncomplete = () => res(out);
+      t.onerror = e => { e.preventDefault?.(); rej(t.error || e.target?.error); };
+      t.onabort = () => rej(t.error || new Error("Vorgang abgebrochen"));
+      try { out = fn(t); } catch (e) { try { t.abort(); } catch {} rej(e); }
+    });
+  },
+  async all(){ const r = await db.tx("mons", "readonly", t => t.objectStore("mons").getAll()); return r.result || []; },
+  async getMeta(k){ const r = await db.tx("meta", "readonly", t => t.objectStore("meta").get(k)); return r.result; },
+  putMeta: (k, v) => db.tx("meta", "readwrite", t => { t.objectStore("meta").put(v, k); }),
+  putMons: list => db.tx("mons", "readwrite", t => { const s = t.objectStore("mons"); for (const m of list) s.put(m); }),
+  delMon: id => db.tx("mons", "readwrite", t => { t.objectStore("mons").delete(id); }),
+  // ersetzt nur den Inhalt der eigenen Tabelle "mons" dieses Tools
+  replaceMons: list => db.tx("mons", "readwrite", t => { const s = t.objectStore("mons"); s.clear(); for (const m of list) s.put(m); })
+};
+let DB_OK = false;
+
+/* ---------- Speicherfehler sichtbar melden ---------- */
+const isQuota = e => e && (e.name === "QuotaExceededError" || /quota/i.test(String(e.message || "")));
+function showStoreError(text){
+  const b = $("#storeErr"); b.hidden = false;
+  b.innerHTML = `<div class="err"><span>${esc(text)}</span><span class="btnrow"><button class="btn small" id="errExport">Sicherung exportieren</button><button class="btn small" id="errHide">Ausblenden</button></span></div>`;
+  $("#errExport").onclick = () => $("#exportBtn").click();
+  $("#errHide").onclick = () => { b.hidden = true; };
+}
+function storeError(what, e){
+  console.error(what, e);
+  const why = isQuota(e) ? "Der Speicher dieser Seite ist voll." : !DB_OK ? "Die Datenbank ist nicht verfügbar." : `Fehler: ${e?.message || e}`;
+  showStoreError(`${what} ist fehlgeschlagen. ${why} Deine letzte Änderung ist nur bis zum Neuladen sichtbar und noch nicht gespeichert. Exportiere jetzt eine Sicherung.`);
+}
+async function persist(what, job, okMsg){
+  if (!DB_OK){ storeError(what, null); return false; }
+  try { await job(); if (okMsg) toast(okMsg); return true; }
+  catch (e) { storeError(what, e); return false; }
+}
+
+/* ---------- Einmalige Übernahme aus dem alten localStorage ---------- */
+async function migrateLegacy(){
+  const raw = {};
+  try { for (const [k, key] of Object.entries(LEGACY)) raw[k] = localStorage.getItem(key); }
+  catch { return; }                                   // localStorage nicht lesbar: nichts zu übernehmen
+  if (raw.mons == null && raw.trainers == null && raw.dex == null) return;
+  let mons = [], trainers = {}, dex = null;
+  try {
+    if (raw.mons != null){ mons = JSON.parse(raw.mons); if (!Array.isArray(mons)) throw new Error("unerwartetes Format"); }
+    if (raw.trainers != null) trainers = JSON.parse(raw.trainers) || {};
+  } catch (e) {
+    showStoreError(`Die alten Daten im Browser-Speicher konnten nicht gelesen werden (${e.message}). Sie bleiben unverändert dort liegen; bitte melde dich, damit sie gerettet werden können.`);
+    return;
+  }
+  try { if (raw.dex != null) dex = JSON.parse(raw.dex); } catch { dex = null; }   // nur Zwischenspeicher, notfalls neu laden
+  mons = mons.filter(m => m && typeof m === "object");
+  for (const m of mons){ if (!m.id) m.id = newId(); migrate(m); }
+
+  const have = new Set((await db.all()).map(m => m.id));       // nichts Neueres überschreiben
+  const oldTrainers = (await db.getMeta("trainers")) || {};
+  await db.tx(["mons", "meta"], "readwrite", t => {
+    const s = t.objectStore("mons"), meta = t.objectStore("meta");
+    for (const m of mons) if (!have.has(m.id)) s.put(m);
+    meta.put({ ...trainers, ...oldTrainers }, "trainers");
+    if (dex && dex.p) meta.put(dex, "dex");
+    meta.put({ at: new Date().toISOString(), pokemon: mons.length }, "migratedFromLocalStorage");
+  });
+
+  // Gegenprobe: erst wenn alles in der Datenbank steht, werden die alten Schlüssel entfernt
+  const now = new Set((await db.all()).map(m => m.id));
+  const missing = mons.filter(m => !now.has(m.id)).length;
+  if (missing){
+    showStoreError(`${missing} Pokémon konnten nicht in die neue Datenbank übernommen werden. Die alten Daten bleiben vorsichtshalber im Browser-Speicher. Exportiere eine Sicherung.`);
+    return;
+  }
+  for (const key of Object.values(LEGACY)) try { localStorage.removeItem(key); } catch {}
+  if (mons.length) toast(`${mons.length} Pokémon in die neue Datenbank übernommen`);
+}
+
+async function requestPersist(){
+  const el = $("#storeInfo");
+  if (!navigator.storage?.persist){ el.textContent = "Dieser Browser kann den Speicher nicht als dauerhaft markieren. Exportiere regelmäßig eine Sicherung."; return; }
+  try {
+    const ok = (await navigator.storage.persisted()) || (await navigator.storage.persist());
+    el.textContent = ok ? "Der Browser hält diese Daten dauerhaft vor." : "Der Browser hat dauerhaften Speicher nicht zugesagt und könnte die Daten bei Platzmangel löschen. Exportiere regelmäßig eine Sicherung.";
+  } catch { el.textContent = ""; }
+}
 function toast(msg){ const t = $("#toast"); t.textContent = msg; t.classList.add("on"); clearTimeout(toast.h); toast.h = setTimeout(() => t.classList.remove("on"), 2200); }
 function typeChip(id){ const t = TYPES[id]; return t ? `<span class="type" style="background:var(--t-${t[1]})">${t[0]}</span>` : ""; }
 
@@ -381,10 +497,11 @@ function parseCSV(text){
 
 /* ---------- Pokédex-Daten laden (einmalig, dann zwischengespeichert) ---------- */
 let DEX = null;          // {p:[...], a:{}, m:{}}
+let DEX_CACHE = null;    // aus der Datenbank gelesener Zwischenspeicher
 let BYID = new Map(), BYNAME = new Map(), MOVENAME = new Map();
 
 async function loadDex(force){
-  if (!force){ const c = store.get(DATA_KEY, null); if (c && c.p) return useDex(c); }
+  if (!force && DEX_CACHE && DEX_CACHE.p) return useDex(DEX_CACHE);
   const files = ["pokemon","pokemon_species_names","pokemon_types","pokemon_abilities","ability_names","pokemon_stats","pokemon_forms","pokemon_form_names","move_names","moves"];
   showBanner(`<span>Lade Pokédex-Daten (einmalig, ca. 3 MB)…</span><div class="progress"><i id="prog"></i></div>`);
   const out = {}; let done = 0;
@@ -396,13 +513,14 @@ async function loadDex(force){
       done++; const p = $("#prog"); if (p) p.style.width = (done / files.length * 100) + "%";
     }));
   } catch (e) {
-    const cached = store.get(DATA_KEY, null);
+    const cached = DEX_CACHE;
     showBanner(`<span>Die Pokédex-Daten konnten nicht geladen werden (${esc(e.message)}). Prüfe die Internetverbindung und versuche es erneut.</span><button class="btn small" onclick="loadDex(true)">Erneut versuchen</button>`, true);
     if (cached && cached.p) useDex(cached, true);
     return;
   }
   const dex = buildDex(out);
-  if (!store.set(DATA_KEY, dex)) console.warn("Pokédex-Daten zu groß für den lokalen Speicher – werden bei jedem Start neu geladen.");
+  DEX_CACHE = dex;
+  if (DB_OK) db.putMeta("dex", dex).catch(e => { console.warn("Pokédex-Cache nicht gespeichert", e); toast("Pokédex-Daten konnten nicht zwischengespeichert werden und werden beim nächsten Start neu geladen"); });
   useDex(dex);
   toast("Pokédex-Daten geladen");
 }
@@ -471,8 +589,7 @@ function showBanner(html, err){ const b = $("#banner"); b.hidden = false; b.inne
 function hideBanner(){ $("#banner").hidden = true; }
 
 /* ---------- Deine Pokémon ---------- */
-let MONS = store.get(BOX_KEY, []).map(migrate);
-function save(){ if (!store.set(BOX_KEY, MONS)) toast("Speichern fehlgeschlagen – Speicher voll?"); }
+let MONS = [];           // wird beim Start aus der Datenbank geladen
 const speciesOf = m => (m.pid && BYID.get(m.pid)) || null;
 const displayName = m => m.nick || (speciesOf(m)?.n) || m.species || "Unbekannt";
 // Mögliche echte DV je Wert aus Potential-Stufe, Statuswert und Charakteristik
@@ -737,24 +854,29 @@ $("#edForm").addEventListener("submit", e => {
   const data = readEditor();
   if (!data.pid && !data.species){ $("#eSpecies").focus(); toast("Gib an, welches Pokémon es ist"); return; }
   if (!data.pid && DEX){ if (!confirm(`„${data.species}“ steht nicht im Pokédex. Trotzdem ohne automatische Daten speichern?`)) return; }
-  if (data.tid && data.ot){ TRAINERS[data.tid] = data.ot; store.set(TR_KEY, TRAINERS); }
-  if (editing) Object.assign(editing, data);
-  else MONS.push({ id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now() + Math.random()), added: Date.now(), ...data });
-  save(); ed.close(); render(); toast(editing ? "Änderungen gespeichert" : "Pokémon hinzugefügt");
+  if (data.tid && data.ot && TRAINERS[data.tid] !== data.ot){ TRAINERS[data.tid] = data.ot; persist("Speichern der Trainer-ID", () => db.putMeta("trainers", TRAINERS)); }
+  const wasEdit = !!editing;
+  let target;
+  if (editing) target = Object.assign(editing, data);
+  else { target = { id: newId(), added: Date.now(), ...data }; MONS.push(target); }
+  ed.close(); render();
+  persist("Speichern", () => db.putMons([target]), wasEdit ? "Änderungen gespeichert" : "Pokémon hinzugefügt");
 });
 $("#edClose").onclick = $("#edCancel").onclick = () => ed.close();
 $("#edDelete").onclick = () => {
   if (!editing || !confirm(`${displayName(editing)} wirklich löschen?`)) return;
-  MONS = MONS.filter(m => m !== editing); save(); ed.close(); render(); toast("Pokémon gelöscht");
+  const gone = editing;
+  MONS = MONS.filter(m => m !== gone); ed.close(); render();
+  persist("Löschen", () => db.delMon(gone.id), "Pokémon gelöscht");
 };
 $("#edDup").onclick = () => {
-  const copy = { ...readEditor(), id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now()), added: Date.now() };
-  MONS.push(copy); save(); render(); openEditor(copy.id); toast("Kopie angelegt");
+  const copy = { ...readEditor(), id: newId(), added: Date.now() };
+  MONS.push(copy); render(); openEditor(copy.id);
+  persist("Speichern der Kopie", () => db.putMons([copy]), "Kopie angelegt");
 };
 
 /* ---------- Trainer & Vorschlagslisten ---------- */
-let TRAINERS = store.get(TR_KEY, {});
-for (const m of MONS) if (m.tid && m.ot && !TRAINERS[m.tid]) TRAINERS[m.tid] = m.ot;
+let TRAINERS = {};       // ID-Nr. → OT-Name, wird beim Start geladen
 function fillLists(){
   $("#tidList").innerHTML = Object.entries(TRAINERS).map(([id, n]) => `<option value="${esc(id)}">${esc(n)}</option>`).join("");
   const locs = [...new Set(MONS.map(m => m.loc).filter(Boolean))].sort((a, b) => a.localeCompare(b, "de"));
@@ -784,19 +906,28 @@ $("#importFile").onchange = async e => {
   try {
     const j = JSON.parse(await f.text()), list = Array.isArray(j) ? j : j.pokemon;
     if (!Array.isArray(list)) throw new Error("Keine Pokémon-Liste gefunden");
-    const replace = MONS.length && confirm(`${list.length} Pokémon gefunden.\n\nOK = vorhandene ${MONS.length} Einträge ersetzen\nAbbrechen = zusammenführen`);
-    list.forEach(migrate);
-    if (j.trainers && typeof j.trainers === "object"){ TRAINERS = { ...j.trainers, ...TRAINERS }; store.set(TR_KEY, TRAINERS); }
-    if (replace) MONS = list;
-    else { const ids = new Set(MONS.map(m => m.id)); for (const m of list) if (!ids.has(m.id)) MONS.push(m); }
-    save(); render(); toast("Sicherung importiert");
+    const clean = list.filter(m => m && typeof m === "object");
+    for (const m of clean){ if (!m.id) m.id = newId(); migrate(m); }
+    const replace = MONS.length && confirm(`${clean.length} Pokémon gefunden.\n\nOK = vorhandene ${MONS.length} Einträge ersetzen\nAbbrechen = zusammenführen`);
+    if (j.trainers && typeof j.trainers === "object"){
+      TRAINERS = { ...j.trainers, ...TRAINERS };
+      persist("Speichern der Trainer-IDs", () => db.putMeta("trainers", TRAINERS));
+    }
+    if (replace){
+      MONS = clean; render();
+      persist("Import", () => db.replaceMons(clean), `${clean.length} Pokémon importiert`);
+    } else {
+      const ids = new Set(MONS.map(m => m.id)), fresh = clean.filter(m => !ids.has(m.id));
+      MONS.push(...fresh); render();
+      persist("Import", () => db.putMons(fresh), `${fresh.length} neue Pokémon übernommen`);
+    }
   } catch (err) { toast("Import fehlgeschlagen: " + err.message); }
 };
 $("#themeBtn").onclick = () => {
   const dark = matchMedia("(prefers-color-scheme: dark)").matches;
   const cur = document.documentElement.dataset.theme || (dark ? "dark" : "light");
   const next = cur === "dark" ? "light" : "dark";
-  document.documentElement.dataset.theme = next; store.set(THEME_KEY, next); themeLabel();
+  document.documentElement.dataset.theme = next; ls.set(THEME_KEY, next); themeLabel();
 };
 function themeLabel(){
   const dark = (document.documentElement.dataset.theme || (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light")) === "dark";
@@ -805,11 +936,36 @@ function themeLabel(){
 matchMedia("(prefers-color-scheme: dark)").addEventListener?.("change", themeLabel);
 
 /* ---------- Start ---------- */
-const savedTheme = store.get(THEME_KEY, null); if (savedTheme) document.documentElement.dataset.theme = savedTheme;
+const savedTheme = ls.get(THEME_KEY, null); if (savedTheme) document.documentElement.dataset.theme = savedTheme;
 themeLabel();
 fillFilters();
-render();
-loadDex(false);
+
+async function init(){
+  $("#box").innerHTML = `<p class="hint">Lade deine Pokémon…</p>`;
+  try { await db.open(); DB_OK = true; }
+  catch (e) {
+    showStoreError(`Die Datenbank konnte nicht geöffnet werden (${e.message}). Das Tool zeigt deine Daten an, kann aber nichts dauerhaft speichern. In privaten Fenstern ist das oft so.`);
+  }
+  if (DB_OK){
+    try {
+      await migrateLegacy();
+      MONS = (await db.all()).map(migrate);
+      TRAINERS = (await db.getMeta("trainers")) || {};
+      DEX_CACHE = (await db.getMeta("dex")) || null;
+    } catch (e) {
+      DB_OK = false;   // nichts schreiben, solange der Bestand nicht sicher gelesen wurde
+      showStoreError(`Deine gespeicherten Pokémon konnten nicht geladen werden (${e.message}). Änderungen werden vorerst nicht gespeichert, damit nichts überschrieben wird. Lade die Seite neu.`);
+    }
+  } else {
+    // nur lesen: falls noch alte Daten im localStorage liegen, wenigstens anzeigen und exportieren können
+    MONS = ls.get(LEGACY.mons, []).map(migrate); TRAINERS = ls.get(LEGACY.trainers, {});
+  }
+  for (const m of MONS) if (m.tid && m.ot && !TRAINERS[m.tid]) TRAINERS[m.tid] = m.ot;
+  render();
+  requestPersist();
+  loadDex(false);
+}
+init();
 </script>
 </body>
 </html>

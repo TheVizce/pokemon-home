@@ -18,6 +18,22 @@ z. B. wenn neue Pokémon dazukommen. Sprites kommen ebenfalls aus dem PokéAPI-S
 
 ## Wo liegen meine Einträge?
 
-Im lokalen Speicher des Browsers, auf dem du die Seite benutzt. Sie werden **nicht** auf GitHub
-gespeichert. Für Sicherungen oder einen Gerätewechsel: „Sicherung exportieren" (JSON-Datei) und auf
-dem anderen Gerät „Sicherung importieren".
+In einer IndexedDB-Datenbank namens `pokemon-home-tool` im Browser, auf dem du die Seite benutzt.
+Sie werden **nicht** auf GitHub gespeichert. Die Datenbank enthält:
+
+- `mons`: deine Pokémon, ein Datensatz pro Pokémon
+- `meta`: die Zuordnung Trainer-ID zu OT-Name (`trainers`), den Pokédex-Zwischenspeicher (`dex`)
+  und einen Vermerk über die einmalige Übernahme aus dem alten Speicher
+
+Im localStorage liegt nur noch `pkbox.theme` (Hell/Dunkel). Das Tool ruft nie `localStorage.clear()` auf
+und fasst keine Schlüssel anderer Tools an.
+
+Bis zum 25.10.2026 lagen die Daten im localStorage (`pkbox.mons.v1`, `pkbox.trainers.v1`, `pkbox.dex.v1`).
+Beim ersten Start der neuen Version werden sie automatisch in die Datenbank übernommen. Die alten Schlüssel
+werden erst gelöscht, nachdem geprüft wurde, dass alle Einträge in der Datenbank stehen.
+
+Kann etwas nicht gespeichert werden (z. B. weil der Speicher voll ist), erscheint oben eine Meldung, die
+stehen bleibt, bis du sie ausblendest.
+
+Für Sicherungen oder einen Gerätewechsel: „Sicherung exportieren" (JSON-Datei) und auf dem anderen Gerät
+„Sicherung importieren".
