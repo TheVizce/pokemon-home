@@ -4,6 +4,10 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Meine Pokémon-Boxen</title>
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="icon" href="favicon-32.png" type="image/png" sizes="32x32">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="theme-color" content="#2F5FD0">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Atkinson+Hyperlegible:wght@400;700&display=swap" rel="stylesheet">
@@ -39,7 +43,8 @@ h1,h2,h3{font-family:"Bricolage Grotesque",system-ui,sans-serif;line-height:1.15
 
 /* Kopfzeile */
 .top{display:flex;flex-wrap:wrap;align-items:flex-end;gap:16px 32px;padding:28px 24px 20px;max-width:1400px;margin:0 auto}
-.top h1{font-size:clamp(28px,4vw,44px);font-weight:800;letter-spacing:-.02em}
+.top h1{font-size:clamp(28px,4vw,44px);font-weight:800;letter-spacing:-.02em;display:flex;align-items:center;gap:.35em}
+.top h1 .logo{width:1em;height:1em;flex:none}
 .counts{display:flex;gap:28px;margin-left:auto;flex-wrap:wrap}
 .top .theme{align-self:center}
 .count b{display:block;font-family:"Bricolage Grotesque",sans-serif;font-size:28px;font-weight:700;line-height:1}
@@ -151,7 +156,7 @@ dialog::backdrop{background:rgba(10,14,22,.55)}
 <body>
 
 <header class="top">
-  <h1>Meine Pokémon-Boxen</h1>
+  <h1><img class="logo" src="icon.svg" alt="" width="44" height="44">Meine Pokémon-Boxen</h1>
   <div class="counts" aria-live="polite">
     <div class="count"><b id="cTotal">0</b><span>Pokémon gespeichert</span></div>
     <div class="count"><b id="cSpecies">0</b><span id="cSpeciesLbl">verschiedene Arten</span></div>
