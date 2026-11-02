@@ -2,7 +2,7 @@
 <html lang="de">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Meine Pokémon-Boxen</title>
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <link rel="icon" href="favicon-32.png" type="image/png" sizes="32x32">
@@ -151,6 +151,10 @@ dialog::backdrop{background:rgba(10,14,22,.55)}
 .sm{display:none}
 @media (max-width:520px){.lg{display:none}.sm{display:inline}}
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+
+/* Home-Bildschirm-App am iPhone: nicht unter Statusleiste/Notch zeichnen */
+.top{padding-top:calc(28px + env(safe-area-inset-top))}
+body{padding-left:env(safe-area-inset-left);padding-right:env(safe-area-inset-right)}
 </style>
 </head>
 <body>
