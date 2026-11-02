@@ -324,6 +324,8 @@ dialog::backdrop{background:rgba(10,14,22,.55)}
 <datalist id="tidList"></datalist>
 <div class="toast" id="toast" role="status"></div>
 
+<!-- GitHub-Sync (gemeinsam für alle Tools, Einstellungen auf der Startseite) -->
+<script src="/startseite/sync-v1.js"></script>
 <script>
 "use strict";
 /* ---------- Feste Tabellen ---------- */
@@ -415,6 +417,7 @@ const db = {
   replaceMons: list => db.tx("mons", "readwrite", t => { const s = t.objectStore("mons"); s.clear(); for (const m of list) s.put(m); })
 };
 let DB_OK = false;
+let SYNC = null;         // GitHub-Sync, siehe initSync()
 
 /* ---------- Speicherfehler sichtbar melden ---------- */
 const isQuota = e => e && (e.name === "QuotaExceededError" || /quota/i.test(String(e.message || "")));
@@ -431,7 +434,7 @@ function storeError(what, e){
 }
 async function persist(what, job, okMsg){
   if (!DB_OK){ storeError(what, null); return false; }
-  try { await job(); if (okMsg) toast(okMsg); return true; }
+  try { await job(); if (SYNC) SYNC.changed(); if (okMsg) toast(okMsg); return true; }
   catch (e) { storeError(what, e); return false; }
 }
 
@@ -969,6 +972,29 @@ async function init(){
   render();
   requestPersist();
   loadDex(false);
+  initSync();
+}
+
+/* GitHub-Sync: gleicht mit tool-daten/pokemon-home.json ab, sobald auf der Startseite eingerichtet.
+   Abgeglichen werden die Pokémon und die Trainer-IDs, nicht der Pokédex-Zwischenspeicher. */
+function initSync(){
+  if (!window.ToolSync || !DB_OK) return;
+  SYNC = ToolSync.create({
+    tool: "pokemon-home",
+    collections: { mons: "array", trainers: "map" },
+    get: () => ({ mons: MONS, trainers: TRAINERS }),
+    apply: async d => {
+      const mons = (d.mons || []).filter(m => m && typeof m === "object").map(m => { if (!m.id) m.id = newId(); return migrate(m); });
+      const trainers = d.trainers || {};
+      const ok = await persist("Übernehmen der Daten aus der Cloud", () => db.tx(["mons", "meta"], "readwrite", t => {
+        const s = t.objectStore("mons"); s.clear(); for (const m of mons) s.put(m);
+        t.objectStore("meta").put(trainers, "trainers");
+      }));
+      if (ok){ MONS = mons; TRAINERS = trainers; render(); }
+      return ok;
+    }
+  });
+  SYNC.start();
 }
 init();
 </script>
