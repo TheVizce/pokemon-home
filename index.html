@@ -133,7 +133,7 @@ dialog::backdrop{background:rgba(10,14,22,.55)}
 .pot{font-weight:700;color:var(--ink)}
 .potrow{display:grid;grid-template-columns:auto minmax(0,1fr);gap:6px 10px;align-items:center;margin-top:8px;font-size:14px;color:var(--ink-soft)}
 .potrow select{width:100%;min-width:0}
-@media (max-width:520px){.potrow{grid-template-columns:1fr}.stats th:nth-child(2),.stats td:nth-child(2){display:none}.ed-head img{width:52px;height:52px}.stats select{max-width:88px}.stats .svin{width:54px}.stats input[type=number]{width:42px}.stats td,.stats th{padding-left:2px;padding-right:2px}.ed-body{padding:12px}}
+@media (max-width:520px){.potrow{grid-template-columns:1fr}.stats th:nth-child(2),.stats td:nth-child(2){display:none}.ed-head img{width:52px;height:52px}.stats select{max-width:88px}.stats .svin{width:54px}.stats td,.stats th{padding-left:2px;padding-right:2px}.ed-body{padding:12px}}
 .warn{color:var(--bad)}
 .stats .svin{width:76px;text-align:right;font-family:"Bricolage Grotesque",sans-serif;font-weight:700}
 .stats .dv{display:block;font-size:12px;color:var(--ink-soft);text-align:right;white-space:nowrap;font-weight:400;font-family:"Atkinson Hyperlegible",sans-serif}
@@ -145,6 +145,13 @@ dialog::backdrop{background:rgba(10,14,22,.55)}
 .totals{display:flex;justify-content:space-between;font-size:14px;color:var(--ink-soft);margin-top:6px}
 .totals .over{color:var(--bad);font-weight:700}
 .abil-desc{font-size:13px;color:var(--ink-soft)}
+#impDlg{width:min(520px,94vw)}
+.imp{padding:20px;display:grid;gap:14px}
+.imp h2{font-size:22px}
+.imp p{margin:0}
+.imp-opt{display:grid;grid-template-columns:auto 1fr;gap:12px;align-items:center}
+.imp-opt .btn{min-width:150px}
+@media (max-width:480px){.imp-opt{grid-template-columns:1fr}}
 .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--ink);color:var(--paper);padding:10px 18px;border-radius:999px;font-weight:700;opacity:0;transition:opacity .2s;pointer-events:none;z-index:50}
 .toast.on{opacity:1}
 @media (prefers-reduced-motion: reduce){*{transition:none!important}}
@@ -239,7 +246,7 @@ body{padding-left:env(safe-area-inset-left);padding-right:env(safe-area-inset-ri
         </label>
         <div class="f2">
           <label class="f">Spitzname <input type="text" id="eNick"></label>
-          <label class="f">Level <input type="number" id="eLevel" min="1" max="100" value="50"></label>
+          <label class="f">Level <input type="number" id="eLevel" min="1" max="100"></label>
         </div>
         <div class="f2">
           <label class="f">Geschlecht
@@ -285,7 +292,7 @@ body{padding-left:env(safe-area-inset-left);padding-right:env(safe-area-inset-ri
       <section>
         <h3>Werte</h3>
         <div class="statwrap"><table class="stats">
-          <thead><tr><th>Wert</th><th>Basis</th><th>Potential</th><th title="Supertraining">ST</th><th>FP<span class="lg"> (0–252)</span></th><th style="text-align:right">Statuswert</th></tr></thead>
+          <thead><tr><th>Wert</th><th>Basis</th><th>Potential</th><th title="Supertraining">ST</th><th style="text-align:right">Statuswert</th></tr></thead>
           <tbody id="statRows"></tbody>
         </table></div>
         <div class="potrow">
@@ -297,8 +304,8 @@ body{padding-left:env(safe-area-inset-left);padding-right:env(safe-area-inset-ri
           <label for="eChar">Charakteristik</label>
           <select id="eChar"></select>
         </div>
-        <div class="totals"><span></span><span id="evTotal">FP gesamt: 0 / 510</span></div>
-        <p class="hint">Trag das Potential so ein, wie Pokémon Home es anzeigt. Die Statuswerte sind optional: Lässt du sie leer, steht dort der mögliche Bereich. Trägst du sie ein, grenzt das Tool die genauen DV ein. Das gilt auch für die Charakteristik. ST = Supertraining, FP = Fleißpunkte (optional).</p>
+        <label class="check"><input type="checkbox" id="eNoEV"> Keine Fleißpunkte (die FP-Grafik in Home ist leer)</label>
+        <p class="hint">Trag das Potential so ein, wie Pokémon Home es anzeigt. Statuswerte sind optional: Leer zeigt das Feld den möglichen Bereich, eingetragen grenzt das Tool die DV ein, ebenso die Charakteristik. Ohne den Haken „Keine Fleißpunkte“ rechnet das Tool mit unbekannten FP und kann die DV nur grob eingrenzen. ST = Supertraining.</p>
         <h3>Ablage und Notizen</h3>
         <div class="f2">
           <label class="f">Box in Home <input type="text" id="eBox" placeholder="z. B. 3 oder Shinys"></label>
@@ -311,7 +318,6 @@ body{padding-left:env(safe-area-inset-left);padding-right:env(safe-area-inset-ri
 
     <div class="ed-foot">
       <button type="button" class="btn danger" id="edDelete">Löschen</button>
-      <button type="button" class="btn" id="edDup">Duplizieren</button>
       <span class="grow"></span>
       <button type="button" class="btn" id="edCancel">Abbrechen</button>
       <button type="submit" class="btn primary" id="edSave">Speichern</button>
@@ -319,6 +325,21 @@ body{padding-left:env(safe-area-inset-left);padding-right:env(safe-area-inset-ri
   </form>
 </dialog>
 
+<dialog id="impDlg" aria-labelledby="impTitle">
+  <form method="dialog" class="imp">
+    <h2 id="impTitle">Sicherung importieren</h2>
+    <p id="impText"></p>
+    <div class="imp-opt">
+      <button class="btn primary" value="merge">Zusammenführen</button>
+      <span class="hint">Fügt nur Pokémon hinzu, die hier noch fehlen. Vorhandene bleiben unverändert.</span>
+    </div>
+    <div class="imp-opt" id="impReplaceRow">
+      <button class="btn danger" value="replace">Ersetzen</button>
+      <span class="hint" id="impReplaceHint"></span>
+    </div>
+    <div class="btnrow"><button class="btn" value="cancel">Abbrechen</button></div>
+  </form>
+</dialog>
 <datalist id="speciesList"></datalist>
 <datalist id="moveList"></datalist>
 <datalist id="ballList"></datalist>
@@ -423,6 +444,18 @@ const db = {
 let DB_OK = false;
 let SYNC = null;         // GitHub-Sync, siehe initSync()
 
+/* Mehrere Tabs: nach jedem Speichern die anderen Tabs informieren, damit sie neu laden */
+const TABS = "BroadcastChannel" in window ? new BroadcastChannel("pokemon-home-tool") : null;
+const notifyTabs = () => { try { TABS && TABS.postMessage("changed"); } catch {} };
+async function reloadFromDb(){
+  if (!DB_OK) return;
+  try {
+    MONS = (await db.all()).map(migrate);
+    TRAINERS = (await db.getMeta("trainers")) || {};
+    render();
+  } catch (e) { console.warn("Neu laden aus der Datenbank fehlgeschlagen", e); }
+}
+
 /* ---------- Speicherfehler sichtbar melden ---------- */
 const isQuota = e => e && (e.name === "QuotaExceededError" || /quota/i.test(String(e.message || "")));
 function showStoreError(text){
@@ -438,7 +471,7 @@ function storeError(what, e){
 }
 async function persist(what, job, okMsg){
   if (!DB_OK){ storeError(what, null); return false; }
-  try { await job(); if (SYNC) SYNC.changed(); if (okMsg) toast(okMsg); return true; }
+  try { await job(); if (SYNC) SYNC.changed(); notifyTabs(); if (okMsg) toast(okMsg); return true; }
   catch (e) { storeError(what, e); return false; }
 }
 
@@ -611,7 +644,7 @@ function ivCandidates(m){
     let s = []; for (let v = 0; v <= 31; v++) s.push(v);
     const r = m.ivr?.[i]; if (r != null) s = s.filter(v => v >= IVR[r][1] && v <= IVR[r][2]);
     const sv = m.sv?.[i];
-    if (sv && sp && lvl && !m.ht?.[i]) s = s.filter(v => calcStat(i, sp.b[i], v, +(m.ev?.[i] || 0), lvl, nat, sp.id) === +sv);
+    if (sv && sp && lvl && !m.ht?.[i]) s = s.filter(v => statSpan(i, sp.b[i], v, lvl, nat, sp.id, m.noEV).has(+sv));
     return s;
   });
   if (m.char != null){
@@ -652,6 +685,13 @@ function migrate(m){
   return m;
 }
 
+// FP stehen in Home nur als Grafik: ohne "keine FP" sind alle Werte 0–252 möglich
+const EV_STEPS = [...Array(64).keys()].map(k => k * 4);
+function statSpan(i, base, iv, lvl, nat, pid, noEV){
+  const out = new Set();
+  for (const ev of noEV ? [0] : EV_STEPS){ const v = calcStat(i, base, iv, ev, lvl, nat, pid); if (v != null) out.add(v); }
+  return out;
+}
 function calcStat(i, base, iv, ev, lvl, nat, pid){
   if (!base) return null;
   if (i === 0){ if (pid === 292) return 1; return Math.floor((2*base + iv + Math.floor(ev/4)) * lvl / 100) + lvl + 10; }
@@ -747,7 +787,7 @@ function render(){
 function resetFilters(){ $("#q").value = ""; $("#fType").value = ""; $("#fNature").value = ""; $("#fBox").value = ""; $("#fShiny").checked = false; $("#fPot").value = ""; render(); }
 
 /* ---------- Editor ---------- */
-let editing = null;
+let editing = null;      // Stand beim Öffnen; gespeichert wird immer über editing.id
 const ed = $("#ed");
 function buildStatRows(){
   $("#statRows").innerHTML = STATS.map((s, i) => `<tr>
@@ -755,7 +795,6 @@ function buildStatRows(){
     <td><span class="base"><span id="sb${i}">–</span><i id="sbb${i}"></i></span></td>
     <td><select id="ivr${i}" aria-label="Potential ${s}"><option value="">?</option>${IVR.map((r, k) => `<option value="${k}">${r[0]}</option>`).join("")}</select></td>
     <td><input type="checkbox" id="ht${i}" aria-label="Supertraining ${s}" title="Supertraining"></td>
-    <td><input type="number" min="0" max="252" step="4" id="ev${i}" aria-label="FP ${s}"></td>
     <td class="val"><input type="text" inputmode="numeric" class="svin" id="sv${i}" aria-label="Statuswert ${s} laut Home"><span class="dv" id="dv${i}"></span></td></tr>`).join("");
 }
 function currentSpecies(){ return BYNAME.get($("#eSpecies").value.trim().toLowerCase()) || null; }
@@ -775,20 +814,19 @@ function refreshEditor(){
   if (prev && [...sel.options].some(o => o.value === prev)) sel.value = prev;
   delete sel.dataset.want;
   // Werte
-  const lvl = Math.min(100, Math.max(1, +$("#eLevel").value || 50));
+  const lvlRaw = +$("#eLevel").value, lvl = lvlRaw ? Math.min(100, Math.max(1, lvlRaw)) : 0;   // 0 = Level unbekannt
   const nat = $("#eNature").value === "" ? -1 : +$("#eNature").value, n = NATURES[nat];
-  const probe = { ...readEditor(), pid: sp?.id || null, level: lvl, nature: nat < 0 ? null : nat };
+  const probe = { ...readEditor(), pid: sp?.id || null, level: lvl || "", nature: nat < 0 ? null : nat };
   const S = ivCandidates(probe);
-  const evT = probe.ev.reduce((a, b) => a + b, 0);
   for (let i = 0; i < 6; i++){
-    const base = sp?.b[i] || 0, ht = probe.ht[i], ev = probe.ev[i];
+    const base = sp?.b[i] || 0, ht = probe.ht[i], evHi = probe.noEV ? 0 : 252;
     $("#ivr" + i).disabled = ht;
     $("#sb" + i).textContent = base || "–";
     $("#sbb" + i).style.width = base ? Math.min(30, base / 255 * 30) + "px" : "0";
     const rg = ivRange(probe, i, S), dv = $("#dv" + i), inp = $("#sv" + i);
     if (!rg){ inp.placeholder = ""; dv.textContent = "Widerspruch"; dv.className = "dv warn"; }
     else {
-      const a = calcStat(i, base, rg[0], ev, lvl, nat, sp?.id), b = calcStat(i, base, rg[1], ev, lvl, nat, sp?.id);
+      const a = lvl ? calcStat(i, base, rg[0], 0, lvl, nat, sp?.id) : null, b = lvl ? calcStat(i, base, rg[1], evHi, lvl, nat, sp?.id) : null;
       inp.placeholder = a == null ? "" : a === b ? a : `${a}–${b}`;
       dv.className = "dv";
       dv.textContent = ht ? "Supertr." : (rg[0] === 0 && rg[1] === 31) ? "" : rg[0] === rg[1] ? `DV ${rg[0]}` : `DV ${rg[0]}–${rg[1]}`;
@@ -807,13 +845,12 @@ function refreshEditor(){
     tEl.className = clash ? "hint warn" : "hint";
     tEl.textContent = clash ? `Passt nicht zu den Einzelwerten (Summe ${slo}–${shi}). Bitte prüfen.` : `Einzelwerte ergeben ${slo}–${shi} von 186${fits.length === 1 && tv === "" ? `, also „${fits[0]}“` : ""}.`;
   }
-  const evEl = $("#evTotal"); evEl.textContent = `FP gesamt: ${evT} / 510`; evEl.className = evT > 510 ? "over" : "";
 }
 
 function openEditor(id){
   if (!ed.dataset.built){ buildStatRows(); ed.dataset.built = 1; ed.addEventListener("input", refreshEditor); ed.addEventListener("change", refreshEditor); }
   editing = id ? MONS.find(m => m.id === id) : null;
-  const m = editing || { level: 50, ivr: [null,null,null,null,null,null], ev: [0,0,0,0,0,0], moves: [] };
+  const m = editing || { level: "", ivr: [null,null,null,null,null,null], moves: [] };
   const sp = speciesOf(m);
   $("#eSpecies").value = sp ? sp.label : (m.species || "");
   $("#eNick").value = m.nick || ""; $("#eLevel").value = m.level ?? "";
@@ -827,10 +864,10 @@ function openEditor(id){
   $("#eGame").value = m.game || ""; $("#eOT").value = m.ot || ""; $("#eTID").value = m.tid || "";
   $("#eShiny").checked = !!m.shiny; $("#eAlpha").checked = !!m.alpha; $("#eGmax").checked = !!m.gmax;
   for (let i = 0; i < 4; i++) $("#eM" + (i+1)).value = m.moves?.[i] || "";
-  $("#eIVT").value = m.ivt ?? "";
-  for (let i = 0; i < 6; i++){ $("#ivr" + i).value = m.ivr?.[i] ?? ""; $("#ev" + i).value = m.ev?.[i] || ""; $("#ht" + i).checked = !!m.ht?.[i]; $("#sv" + i).value = m.sv?.[i] || ""; }
+  $("#eIVT").value = m.ivt ?? ""; $("#eNoEV").checked = !!m.noEV;
+  for (let i = 0; i < 6; i++){ $("#ivr" + i).value = m.ivr?.[i] ?? ""; $("#ht" + i).checked = !!m.ht?.[i]; $("#sv" + i).value = m.sv?.[i] || ""; }
   $("#eBox").value = m.box || ""; $("#eSlot").value = m.slot || ""; $("#eTags").value = (m.tags || []).join(", "); $("#eNotes").value = m.notes || "";
-  $("#edDelete").hidden = !editing; $("#edDup").hidden = !editing;
+  $("#edDelete").hidden = !editing;
   refreshEditor();
   ed.showModal();
   if (!editing) $("#eSpecies").focus();
@@ -855,7 +892,7 @@ function readEditor(){
     ivr: [0,1,2,3,4,5].map(i => $("#ivr" + i).value === "" ? null : +$("#ivr" + i).value),
     ivt: $("#eIVT").value === "" ? null : +$("#eIVT").value,
     ht: [0,1,2,3,4,5].map(i => $("#ht" + i).checked),
-    ev: [0,1,2,3,4,5].map(i => +num($("#ev" + i).value || 0, 0, 252)),
+    noEV: $("#eNoEV").checked,
     box: $("#eBox").value.trim(), slot: $("#eSlot").value ? +$("#eSlot").value : null,
     tags: $("#eTags").value.split(",").map(t => t.trim()).filter(Boolean), notes: $("#eNotes").value.trim()
   };
@@ -869,22 +906,22 @@ $("#edForm").addEventListener("submit", e => {
   if (data.tid && data.ot && TRAINERS[data.tid] !== data.ot){ TRAINERS[data.tid] = data.ot; persist("Speichern der Trainer-ID", () => db.putMeta("trainers", TRAINERS)); }
   const wasEdit = !!editing;
   let target;
-  if (editing) target = Object.assign(editing, data);
-  else { target = { id: newId(), added: Date.now(), ...data }; MONS.push(target); }
+  if (editing){
+    // aktuellen Eintrag über die id suchen: der Bestand kann inzwischen aus der Cloud neu geladen worden sein
+    const k = MONS.findIndex(m => m.id === editing.id);
+    target = { ...(k >= 0 ? MONS[k] : editing), ...data, id: editing.id };
+    if (k >= 0) MONS[k] = target; else MONS.push(target);
+  } else { target = { id: newId(), added: Date.now(), ...data }; MONS.push(target); }
+  editing = null;
   ed.close(); render();
   persist("Speichern", () => db.putMons([target]), wasEdit ? "Änderungen gespeichert" : "Pokémon hinzugefügt");
 });
 $("#edClose").onclick = $("#edCancel").onclick = () => ed.close();
 $("#edDelete").onclick = () => {
   if (!editing || !confirm(`${displayName(editing)} wirklich löschen?`)) return;
-  const gone = editing;
-  MONS = MONS.filter(m => m !== gone); ed.close(); render();
+  const gone = editing; editing = null;
+  MONS = MONS.filter(m => m.id !== gone.id); ed.close(); render();
   persist("Löschen", () => db.delMon(gone.id), "Pokémon gelöscht");
-};
-$("#edDup").onclick = () => {
-  const copy = { ...readEditor(), id: newId(), added: Date.now() };
-  MONS.push(copy); render(); openEditor(copy.id);
-  persist("Speichern der Kopie", () => db.putMons([copy]), "Kopie angelegt");
 };
 
 /* ---------- Trainer & Vorschlagslisten ---------- */
@@ -900,6 +937,21 @@ $("#eTID").addEventListener("input", () => {
   else if (!known && ot.dataset.auto){ ot.value = ""; ot.dataset.auto = ""; hint.hidden = true; }
 });
 $("#eOT").addEventListener("input", () => { $("#eOT").dataset.auto = ""; $("#tidHint").hidden = true; });
+
+/* ---------- Import: Zusammenführen, Ersetzen oder Abbrechen ---------- */
+function askImport(count){
+  const dlg = $("#impDlg"), ids = new Set(MONS.map(m => m.id));
+  $("#impText").textContent = `Die Datei enthält ${count} Pokémon. Hier sind ${MONS.length} gespeichert.`;
+  $("#impReplaceRow").hidden = !MONS.length;
+  $("#impReplaceHint").textContent = SYNC && SYNC.configured
+    ? "Löscht alle Pokémon, die nicht in der Datei stehen. Durch den Sync verschwinden sie auch auf deinen anderen Geräten."
+    : "Löscht alle Pokémon, die nicht in der Datei stehen.";
+  return new Promise(res => {
+    dlg.returnValue = "cancel";
+    dlg.addEventListener("close", () => res(dlg.returnValue || "cancel"), { once: true });
+    dlg.showModal();
+  });
+}
 
 /* ---------- Ereignisse ---------- */
 $("#addBtn").onclick = () => openEditor();
@@ -920,7 +972,9 @@ $("#importFile").onchange = async e => {
     if (!Array.isArray(list)) throw new Error("Keine Pokémon-Liste gefunden");
     const clean = list.filter(m => m && typeof m === "object");
     for (const m of clean){ if (!m.id) m.id = newId(); migrate(m); }
-    const replace = MONS.length && confirm(`${clean.length} Pokémon gefunden.\n\nOK = vorhandene ${MONS.length} Einträge ersetzen\nAbbrechen = zusammenführen`);
+    const choice = await askImport(clean.length);
+    if (choice === "cancel") return;
+    const replace = choice === "replace";
     if (j.trainers && typeof j.trainers === "object"){
       TRAINERS = { ...j.trainers, ...TRAINERS };
       persist("Speichern der Trainer-IDs", () => db.putMeta("trainers", TRAINERS));
@@ -976,6 +1030,8 @@ async function init(){
   render();
   requestPersist();
   loadDex(false);
+  if (TABS) TABS.onmessage = () => reloadFromDb();
+  document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") reloadFromDb(); });
   initSync();
 }
 
@@ -986,7 +1042,9 @@ function initSync(){
   SYNC = ToolSync.create({
     tool: "pokemon-home",
     collections: { mons: "array", trainers: "map" },
-    get: () => ({ mons: MONS, trainers: TRAINERS }),
+    shards: 16,   // Ordner pokemon-home/ (main.json + s00–s15.json); nur geänderte Teile werden hochgeladen. Zahl NIE ändern.
+    // direkt aus der Datenbank lesen, nicht aus dem Speicher dieses Tabs: sonst hält ein veralteter Tab Neues für gelöscht
+    get: async () => ({ mons: (await db.all()).map(migrate), trainers: (await db.getMeta("trainers")) || {} }),
     apply: async d => {
       const mons = (d.mons || []).filter(m => m && typeof m === "object").map(m => { if (!m.id) m.id = newId(); return migrate(m); });
       const trainers = d.trainers || {};
