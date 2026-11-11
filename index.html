@@ -53,6 +53,7 @@ h1,h2,h3{font-family:"Bricolage Grotesque",system-ui,sans-serif;line-height:1.15
 .banner{max-width:1400px;margin:0 auto 12px;padding:0 24px}
 .banner > div{background:var(--panel);border:1px solid var(--line);border-left:4px solid var(--accent);padding:10px 14px;border-radius:var(--radius-sm);display:flex;gap:12px;align-items:center;flex-wrap:wrap}
 .banner .err{border-left-color:var(--bad)}
+.banner .btnrow{margin-left:auto}
 .progress{flex:1;min-width:120px;height:6px;background:var(--slot);border-radius:3px;overflow:hidden}
 .progress i{display:block;height:100%;background:var(--accent);width:0;transition:width .2s}
 
@@ -177,6 +178,8 @@ body{padding-left:env(safe-area-inset-left);padding-right:env(safe-area-inset-ri
 </header>
 
 <div class="banner" id="storeErr" role="alert" hidden></div>
+<div class="banner" id="legacyBar" hidden></div>
+<div class="banner" id="draftBar" hidden></div>
 <div class="banner" id="banner" hidden></div>
 
 <main class="wrap">
@@ -218,7 +221,7 @@ body{padding-left:env(safe-area-inset-left);padding-right:env(safe-area-inset-ri
     <div class="btnrow">
       <button class="btn small" id="reloadData">Pokédex-Daten neu laden</button>
     </div>
-    <p class="hint">Deine Einträge liegen in einer Datenbank in diesem Browser, nur auf diesem Gerät. Exportiere regelmäßig eine Sicherung, auch um sie auf ein anderes Gerät zu übertragen.</p>
+    <p class="hint">Deine Einträge liegen in einer Datenbank in diesem Browser. Mit dem GitHub-Sync (☁︎ unten links, eingerichtet auf der Startseite) gleichen sie sich zwischen deinen Geräten ab. Eine exportierte Sicherung ist zusätzlich dein Rückfallnetz.</p>
     <p class="hint" id="storeInfo"></p>
   </aside>
 
@@ -269,10 +272,7 @@ body{padding-left:env(safe-area-inset-left);padding-right:env(safe-area-inset-ri
           <label class="f">Originaltrainer (OT) <input type="text" id="eOT"></label>
         </div>
         <p class="hint" id="tidHint" hidden></p>
-        <div class="f2">
-          <label class="f">Herkunft <input type="text" id="eOrigin" list="originList" placeholder="Region, Home oder GO"></label>
-          <label class="f">Herkunftsspiel <input type="text" id="eGame" list="gameList"></label>
-        </div>
+        <label class="f">Herkunft <input type="text" id="eOrigin" list="originList" placeholder="Spiel, Region, Home oder GO"></label>
         <label class="f">Fundort <input type="text" id="eLoc" list="locList" placeholder="z. B. Route 3"></label>
         <div class="f3">
           <label class="f">Getroffen am <input type="date" id="eMetDate"></label>
@@ -343,7 +343,6 @@ body{padding-left:env(safe-area-inset-left);padding-right:env(safe-area-inset-ri
 <datalist id="speciesList"></datalist>
 <datalist id="moveList"></datalist>
 <datalist id="ballList"></datalist>
-<datalist id="gameList"></datalist>
 <datalist id="originList"></datalist>
 <datalist id="locList"></datalist>
 <datalist id="tidList"></datalist>
@@ -384,11 +383,10 @@ const GAMES = ["Karmesin","Purpur","Legenden: Z-A","Legenden: Arceus","Schwert",
 
 const CSV_BASE = "https://raw.githubusercontent.com/PokeAPI/pokeapi/master/data/v2/csv/";
 const SPRITE = (id, shiny) => `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${shiny ? "shiny/" : ""}${id}.png`;
-// Speicher: alle Daten in IndexedDB "pokemon-home-tool"; im localStorage bleibt nur die Hell/Dunkel-Wahl
+// Speicher: alle Daten in IndexedDB "pokemon-home-tool"; im localStorage nur Hell/Dunkel und ein Editor-Entwurf
 const DB_NAME = "pokemon-home-tool", DB_VERSION = 1;
 const THEME_KEY = "pkbox.theme";
-// alte localStorage-Schlüssel (bis Version vom 25.10.2026) – werden einmalig übernommen und dann entfernt
-const LEGACY = { mons: "pkbox.mons.v1", trainers: "pkbox.trainers.v1", dex: "pkbox.dex.v1" };
+const DRAFT_KEY = "pkbox.draft";   // ungespeicherter Editor-Inhalt (ein Pokémon, wenige KB)
 const DE = 6, EN = 9;
 
 /* ---------- Hilfen ---------- */
@@ -475,43 +473,30 @@ async function persist(what, job, okMsg){
   catch (e) { storeError(what, e); return false; }
 }
 
-/* ---------- Einmalige Übernahme aus dem alten localStorage ---------- */
-async function migrateLegacy(){
-  const raw = {};
-  try { for (const [k, key] of Object.entries(LEGACY)) raw[k] = localStorage.getItem(key); }
-  catch { return; }                                   // localStorage nicht lesbar: nichts zu übernehmen
-  if (raw.mons == null && raw.trainers == null && raw.dex == null) return;
-  let mons = [], trainers = {}, dex = null;
+/* ---------- Reste aus der allerersten Version (bis 25.10.2026, localStorage) ----------
+   Die automatische Übernahme ist entfernt. Liegen auf einem Gerät doch noch alte Daten,
+   bietet das Tool sie zum Herunterladen an; danach lassen sie sich mit „Sicherung importieren“ einlesen. */
+const LEGACY = { mons: "pkbox.mons.v1", trainers: "pkbox.trainers.v1", dex: "pkbox.dex.v1" };
+function checkLegacy(){
+  let mons, trainers;
   try {
-    if (raw.mons != null){ mons = JSON.parse(raw.mons); if (!Array.isArray(mons)) throw new Error("unerwartetes Format"); }
-    if (raw.trainers != null) trainers = JSON.parse(raw.trainers) || {};
-  } catch (e) {
-    showStoreError(`Die alten Daten im Browser-Speicher konnten nicht gelesen werden (${e.message}). Sie bleiben unverändert dort liegen; bitte melde dich, damit sie gerettet werden können.`);
-    return;
-  }
-  try { if (raw.dex != null) dex = JSON.parse(raw.dex); } catch { dex = null; }   // nur Zwischenspeicher, notfalls neu laden
-  mons = mons.filter(m => m && typeof m === "object");
-  for (const m of mons){ if (!m.id) m.id = newId(); migrate(m); }
-
-  const have = new Set((await db.all()).map(m => m.id));       // nichts Neueres überschreiben
-  const oldTrainers = (await db.getMeta("trainers")) || {};
-  await db.tx(["mons", "meta"], "readwrite", t => {
-    const s = t.objectStore("mons"), meta = t.objectStore("meta");
-    for (const m of mons) if (!have.has(m.id)) s.put(m);
-    meta.put({ ...trainers, ...oldTrainers }, "trainers");
-    if (dex && dex.p) meta.put(dex, "dex");
-    meta.put({ at: new Date().toISOString(), pokemon: mons.length }, "migratedFromLocalStorage");
-  });
-
-  // Gegenprobe: erst wenn alles in der Datenbank steht, werden die alten Schlüssel entfernt
-  const now = new Set((await db.all()).map(m => m.id));
-  const missing = mons.filter(m => !now.has(m.id)).length;
-  if (missing){
-    showStoreError(`${missing} Pokémon konnten nicht in die neue Datenbank übernommen werden. Die alten Daten bleiben vorsichtshalber im Browser-Speicher. Exportiere eine Sicherung.`);
-    return;
-  }
-  for (const key of Object.values(LEGACY)) try { localStorage.removeItem(key); } catch {}
-  if (mons.length) toast(`${mons.length} Pokémon in die neue Datenbank übernommen`);
+    localStorage.removeItem(LEGACY.dex);            // nur ein alter Pokédex-Zwischenspeicher
+    mons = localStorage.getItem(LEGACY.mons); trainers = localStorage.getItem(LEGACY.trainers);
+  } catch { return; }
+  if (mons == null && trainers == null) return;
+  const bar = $("#legacyBar"); bar.hidden = false;
+  bar.innerHTML = `<div><span>Auf diesem Gerät liegen noch Pokémon aus der allerersten Version des Tools. Lade sie herunter und lies die Datei mit „Sicherung importieren“ ein (am besten „Zusammenführen“).</span><span class="btnrow"><button class="btn small" id="legacyGet">Alte Daten herunterladen</button><button class="btn small danger" id="legacyDel">Alte Daten löschen</button></span></div>`;
+  $("#legacyGet").onclick = () => {
+    let list = [], tr = {};
+    try { list = JSON.parse(mons || "[]"); } catch {}
+    try { tr = JSON.parse(trainers || "{}") || {}; } catch {}
+    download(`pokemon-boxen-alte-daten-${new Date().toISOString().slice(0, 10)}.json`, { app: "pkbox", version: 1, exported: new Date().toISOString(), pokemon: Array.isArray(list) ? list : [], trainers: tr });
+  };
+  $("#legacyDel").onclick = () => {
+    if (!confirm("Die alten Daten auf diesem Gerät endgültig löschen? Lade sie vorher herunter, falls du sie noch brauchst.")) return;
+    try { localStorage.removeItem(LEGACY.mons); localStorage.removeItem(LEGACY.trainers); } catch {}
+    bar.hidden = true; toast("Alte Daten gelöscht");
+  };
 }
 
 async function requestPersist(){
@@ -543,7 +528,7 @@ function parseCSV(text){
 /* ---------- Pokédex-Daten laden (einmalig, dann zwischengespeichert) ---------- */
 let DEX = null;          // {p:[...], a:{}, m:{}}
 let DEX_CACHE = null;    // aus der Datenbank gelesener Zwischenspeicher
-let BYID = new Map(), BYNAME = new Map(), MOVENAME = new Map();
+let BYID = new Map(), BYNAME = new Map();
 
 async function loadDex(force){
   if (!force && DEX_CACHE && DEX_CACHE.p) return useDex(DEX_CACHE);
@@ -615,14 +600,13 @@ function buildDex(d){
 }
 
 function useDex(dex, quiet){
-  DEX = dex; BYID.clear(); BYNAME.clear(); MOVENAME.clear();
+  DEX = dex; BYID.clear(); BYNAME.clear();
   // gleiche Namen (z. B. mehrere Formen ohne eigenen Namen) eindeutig machen
   const seen = {};
   for (const x of dex.p){
     let label = x.n; if (seen[label]) label = `${x.n} [${x.id}]`; seen[label] = 1; x.label = label;
     BYID.set(x.id, x); BYNAME.set(label.toLowerCase(), x);
   }
-  for (const [id, mv] of Object.entries(dex.m)) MOVENAME.set(mv[0].toLowerCase(), +id);
   $("#speciesList").innerHTML = dex.p.map(x => `<option value="${esc(x.label)}">#${x.s}</option>`).join("");
   $("#moveList").innerHTML = Object.values(dex.m).map(m => `<option value="${esc(m[0])}">`).join("");
   if (!quiet) hideBanner();
@@ -682,6 +666,12 @@ function migrate(m){
     delete m.iv;
   }
   if (!m.ivr) m.ivr = [null,null,null,null,null,null];
+  // früher zwei Felder: Herkunftsspiel geht in "Herkunft" auf (nichts geht verloren)
+  if (m.game != null){
+    const g = String(m.game).trim(), o = String(m.origin || "").trim();
+    if (g) m.origin = !o ? g : o.toLowerCase().includes(g.toLowerCase()) ? o : `${o}, ${g}`;
+    delete m.game;
+  }
   return m;
 }
 
@@ -711,9 +701,8 @@ function fillFilters(){
   $("#eIVT").innerHTML = `<option value="">– nicht eingetragen –</option>` + IVT.map((t, i) => `<option value="${i}">${t[0]} (${t[1]}–${t[2]})</option>`).join("");
   $("#eChar").innerHTML = `<option value="">– nicht eingetragen –</option>` + CHARS.map((row, s) => `<optgroup label="${STATS[s]} ist am höchsten">` +
     row.map((t, r) => `<option value="${s * 5 + r}">${t} (DV ${[0,1,2,3,4,5,6].map(k => r + 5 * k).filter(v => v <= 31).join(", ")})</option>`).join("") + `</optgroup>`).join("");
-  $("#originList").innerHTML = ORIGINS.map(o => `<option value="${esc(o)}">`).join("");
+  $("#originList").innerHTML = [...new Set([...GAMES, ...ORIGINS])].map(o => `<option value="${esc(o)}">`).join("");
   $("#ballList").innerHTML = BALLS.map(b => `<option value="${b}">`).join("");
-  $("#gameList").innerHTML = GAMES.map(g => `<option value="${esc(g)}">`).join("");
 }
 function fillBoxFilter(){
   const cur = $("#fBox").value;
@@ -733,7 +722,7 @@ function render(){
     if (fs && !m.shiny) return false;
     if (fp !== "" && (fp === "none" ? totalTier(m) != null : String(totalTier(m)) !== fp)) return false;
     if (q){
-      const hay = [displayName(m), sp?.n, m.species, m.notes, (m.tags || []).join(" "), m.ot, m.game, m.loc, m.origin].join(" ").toLowerCase();
+      const hay = [displayName(m), sp?.n, m.species, m.notes, (m.tags || []).join(" "), m.ot, m.loc, m.origin].join(" ").toLowerCase();
       if (!hay.includes(q)) return false;
     }
     return true;
@@ -788,6 +777,38 @@ function resetFilters(){ $("#q").value = ""; $("#fType").value = ""; $("#fNature
 
 /* ---------- Editor ---------- */
 let editing = null;      // Stand beim Öffnen; gespeichert wird immer über editing.id
+let edBaseline = null;   // Editor-Inhalt direkt nach dem Öffnen, um Änderungen zu erkennen
+const edDirty = () => edBaseline != null && JSON.stringify(readEditor()) !== edBaseline;
+
+/* ---------- Entwurf: übersteht Neuladen, App-Wechsel und Abstürze ---------- */
+let draftWarned = false;
+function saveDraft(){
+  if (edBaseline == null) return;
+  if (!edDirty()){ clearDraft(); return; }
+  const ok = ls.set(DRAFT_KEY, { id: editing ? editing.id : null, data: { ...readEditor(), speciesText: $("#eSpecies").value }, name: $("#eNick").value || $("#eSpecies").value || "Neues Pokémon", at: Date.now() });
+  if (!ok && !draftWarned){ draftWarned = true; toast("Entwurf konnte nicht zwischengespeichert werden – bitte bald speichern"); }
+}
+function clearDraft(){ try { localStorage.removeItem(DRAFT_KEY); } catch {} $("#draftBar").hidden = true; }
+function showDraftBar(){
+  const d = ls.get(DRAFT_KEY, null), bar = $("#draftBar");
+  if (!d || !d.data){ bar.hidden = true; return; }
+  const mins = Math.round((Date.now() - (d.at || 0)) / 60000);
+  const when = mins < 1 ? "gerade eben" : mins < 60 ? `vor ${mins} Min.` : new Date(d.at).toLocaleString("de-DE", { dateStyle: "short", timeStyle: "short" });
+  bar.hidden = false;
+  bar.innerHTML = `<div><span>Ungespeicherter Entwurf: <b>${esc(d.name)}</b> (${when})</span><span class="btnrow"><button class="btn small primary" id="draftGo">Weiterbearbeiten</button><button class="btn small" id="draftDrop">Verwerfen</button></span></div>`;
+  $("#draftGo").onclick = () => {
+    const exists = d.id && MONS.some(m => m.id === d.id);
+    if (d.id && !exists) toast("Das Pokémon wurde inzwischen gelöscht – der Entwurf wird als neues Pokémon geöffnet");
+    openEditor(exists ? d.id : null, d.data);
+  };
+  $("#draftDrop").onclick = () => { if (confirm("Entwurf verwerfen?")) clearDraft(); };
+}
+// Schließen ohne Speichern: bei Änderungen nachfragen
+function closeEditor(){
+  if (edDirty() && !confirm("Deine Änderungen sind noch nicht gespeichert. Verwerfen?")) return false;
+  edBaseline = null; clearDraft(); ed.close(); showDraftBar();
+  return true;
+}
 const ed = $("#ed");
 function buildStatRows(){
   $("#statRows").innerHTML = STATS.map((s, i) => `<tr>
@@ -847,12 +868,27 @@ function refreshEditor(){
   }
 }
 
-function openEditor(id){
-  if (!ed.dataset.built){ buildStatRows(); ed.dataset.built = 1; ed.addEventListener("input", refreshEditor); ed.addEventListener("change", refreshEditor); }
+function openEditor(id, draft){
+  if (!ed.dataset.built){
+    buildStatRows(); ed.dataset.built = 1;
+    const onEdit = () => { refreshEditor(); saveDraft(); };
+    ed.addEventListener("input", onEdit); ed.addEventListener("change", onEdit);
+    ed.addEventListener("cancel", e => { e.preventDefault(); closeEditor(); });   // Escape
+  }
+  edBaseline = null;
   editing = id ? MONS.find(m => m.id === id) : null;
-  const m = editing || { level: "", ivr: [null,null,null,null,null,null], moves: [] };
+  const base = editing || { level: "", ivr: [null,null,null,null,null,null], moves: [] };
+  $("#edDelete").hidden = !editing;
+  fillEditor(base); refreshEditor();
+  edBaseline = JSON.stringify(readEditor());   // Vergleichsstand ist immer der gespeicherte Eintrag
+  if (draft){ fillEditor({ ...base, ...draft }); refreshEditor(); }
+  $("#draftBar").hidden = true;
+  if (!ed.open) ed.showModal();
+  if (!editing && !draft) $("#eSpecies").focus();
+}
+function fillEditor(m){
   const sp = speciesOf(m);
-  $("#eSpecies").value = sp ? sp.label : (m.species || "");
+  $("#eSpecies").value = sp ? sp.label : (m.species || m.speciesText || "");
   $("#eNick").value = m.nick || ""; $("#eLevel").value = m.level ?? "";
   $("#eGender").value = m.gender || ""; $("#eNature").value = m.nature ?? "";
   $("#eAbility").dataset.want = m.ability ?? "";
@@ -861,16 +897,12 @@ function openEditor(id){
   $("#eMetLv").value = m.metLv || ""; $("#eDeposit").value = m.deposit || ""; $("#eChar").value = m.char ?? "";
   $("#eOT").dataset.auto = ""; $("#tidHint").hidden = true;
   fillLists();
-  $("#eGame").value = m.game || ""; $("#eOT").value = m.ot || ""; $("#eTID").value = m.tid || "";
+  $("#eOT").value = m.ot || ""; $("#eTID").value = m.tid || "";
   $("#eShiny").checked = !!m.shiny; $("#eAlpha").checked = !!m.alpha; $("#eGmax").checked = !!m.gmax;
   for (let i = 0; i < 4; i++) $("#eM" + (i+1)).value = m.moves?.[i] || "";
   $("#eIVT").value = m.ivt ?? ""; $("#eNoEV").checked = !!m.noEV;
   for (let i = 0; i < 6; i++){ $("#ivr" + i).value = m.ivr?.[i] ?? ""; $("#ht" + i).checked = !!m.ht?.[i]; $("#sv" + i).value = m.sv?.[i] || ""; }
   $("#eBox").value = m.box || ""; $("#eSlot").value = m.slot || ""; $("#eTags").value = (m.tags || []).join(", "); $("#eNotes").value = m.notes || "";
-  $("#edDelete").hidden = !editing;
-  refreshEditor();
-  ed.showModal();
-  if (!editing) $("#eSpecies").focus();
 }
 
 function readEditor(){
@@ -881,7 +913,7 @@ function readEditor(){
     nick: $("#eNick").value.trim(), level: num($("#eLevel").value, 1, 100),
     gender: $("#eGender").value, nature: $("#eNature").value === "" ? null : +$("#eNature").value,
     ability: $("#eAbility").value || null, tera: $("#eTera").value || null,
-    ball: $("#eBall").value.trim(), game: $("#eGame").value.trim(),
+    ball: $("#eBall").value.trim(),
     origin: $("#eOrigin").value.trim(), loc: $("#eLoc").value.trim(), metDate: $("#eMetDate").value,
     metLv: $("#eMetLv").value ? +num($("#eMetLv").value, 1, 100) : null, deposit: $("#eDeposit").value,
     char: $("#eChar").value === "" ? null : +$("#eChar").value,
@@ -912,14 +944,14 @@ $("#edForm").addEventListener("submit", e => {
     target = { ...(k >= 0 ? MONS[k] : editing), ...data, id: editing.id };
     if (k >= 0) MONS[k] = target; else MONS.push(target);
   } else { target = { id: newId(), added: Date.now(), ...data }; MONS.push(target); }
-  editing = null;
+  editing = null; edBaseline = null; clearDraft();
   ed.close(); render();
   persist("Speichern", () => db.putMons([target]), wasEdit ? "Änderungen gespeichert" : "Pokémon hinzugefügt");
 });
-$("#edClose").onclick = $("#edCancel").onclick = () => ed.close();
+$("#edClose").onclick = $("#edCancel").onclick = () => closeEditor();
 $("#edDelete").onclick = () => {
   if (!editing || !confirm(`${displayName(editing)} wirklich löschen?`)) return;
-  const gone = editing; editing = null;
+  const gone = editing; editing = null; edBaseline = null; clearDraft();
   MONS = MONS.filter(m => m.id !== gone.id); ed.close(); render();
   persist("Löschen", () => db.delMon(gone.id), "Pokémon gelöscht");
 };
@@ -958,10 +990,13 @@ $("#addBtn").onclick = () => openEditor();
 $("#box").addEventListener("click", e => { const c = e.target.closest(".mon"); if (c) openEditor(c.dataset.id); });
 ["#q","#fType","#fNature","#fBox","#fPot","#fShiny","#sort"].forEach(s => $(s).addEventListener("input", render));
 $("#reloadData").onclick = () => loadDex(true);
-$("#exportBtn").onclick = () => {
-  const blob = new Blob([JSON.stringify({ app: "pkbox", version: 1, exported: new Date().toISOString(), pokemon: MONS, trainers: TRAINERS }, null, 2)], { type: "application/json" });
+function download(name, obj){
+  const blob = new Blob([JSON.stringify(obj, null, 2)], { type: "application/json" });
   const a = document.createElement("a"); a.href = URL.createObjectURL(blob);
-  a.download = `pokemon-boxen-${new Date().toISOString().slice(0, 10)}.json`; a.click(); URL.revokeObjectURL(a.href);
+  a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+$("#exportBtn").onclick = () => {
+  download(`pokemon-boxen-${new Date().toISOString().slice(0, 10)}.json`, { app: "pkbox", version: 1, exported: new Date().toISOString(), pokemon: MONS, trainers: TRAINERS });
   toast("Sicherung exportiert");
 };
 $("#importBtn").onclick = () => $("#importFile").click();
@@ -1012,22 +1047,24 @@ async function init(){
   catch (e) {
     showStoreError(`Die Datenbank konnte nicht geöffnet werden (${e.message}). Das Tool zeigt deine Daten an, kann aber nichts dauerhaft speichern. In privaten Fenstern ist das oft so.`);
   }
+  let upgraded = [];
   if (DB_OK){
     try {
-      await migrateLegacy();
-      MONS = (await db.all()).map(migrate);
+      const raw = await db.all();
+      // ältere Einträge ins aktuelle Format bringen und das auch speichern, damit der Sync denselben Stand sieht
+      upgraded = raw.filter(m => { const before = JSON.stringify(m); migrate(m); return JSON.stringify(m) !== before; });
+      MONS = raw;
       TRAINERS = (await db.getMeta("trainers")) || {};
       DEX_CACHE = (await db.getMeta("dex")) || null;
     } catch (e) {
       DB_OK = false;   // nichts schreiben, solange der Bestand nicht sicher gelesen wurde
       showStoreError(`Deine gespeicherten Pokémon konnten nicht geladen werden (${e.message}). Änderungen werden vorerst nicht gespeichert, damit nichts überschrieben wird. Lade die Seite neu.`);
     }
-  } else {
-    // nur lesen: falls noch alte Daten im localStorage liegen, wenigstens anzeigen und exportieren können
-    MONS = ls.get(LEGACY.mons, []).map(migrate); TRAINERS = ls.get(LEGACY.trainers, {});
   }
-  for (const m of MONS) if (m.tid && m.ot && !TRAINERS[m.tid]) TRAINERS[m.tid] = m.ot;
+  if (upgraded.length) await persist("Aktualisieren älterer Einträge", () => db.putMons(upgraded));
+  checkLegacy();
   render();
+  showDraftBar();
   requestPersist();
   loadDex(false);
   if (TABS) TABS.onmessage = () => reloadFromDb();

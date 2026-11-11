@@ -1,39 +1,46 @@
 # Meine Pokémon-Boxen
 
-Ein kleines Tool, um die eigenen Pokémon aus Pokémon Home zu verwalten – als einzelne Datei für GitHub Pages.
+Ein Tool, um die eigenen Pokémon aus Pokémon Home zu verwalten: Potential, Wesen, Fähigkeit,
+Herkunft, Box und Platz. Läuft unter https://thevizce.github.io/pokemon-home/.
 
-## Auf GitHub Pages veröffentlichen
-
-1. Auf github.com ein neues Repository anlegen, z. B. `pokemon-boxen` (öffentlich).
-2. **Add file → Upload files** und `index.html` (und diese README) hochladen, dann **Commit changes**.
-3. **Settings → Pages**: unter *Build and deployment* als Quelle **Deploy from a branch**, Branch `main`, Ordner `/ (root)` wählen, speichern.
-4. Nach ein bis zwei Minuten ist die Seite unter `https://<dein-name>.github.io/pokemon-boxen/` erreichbar.
-
-## Woher kommen die Pokémon-Daten?
+## Pokédex-Daten
 
 Beim ersten Öffnen lädt die Seite die offenen Daten des PokéAPI-Projekts (deutsche Namen, Typen,
 Fähigkeiten inkl. versteckter, Basiswerte, Attacken, Regionalformen) und speichert sie im Browser.
 Danach startet sie ohne erneuten Download. Über „Pokédex-Daten neu laden" holst du Aktualisierungen,
-z. B. wenn neue Pokémon dazukommen. Sprites kommen ebenfalls aus dem PokéAPI-Sprite-Archiv.
+z. B. wenn neue Pokémon dazukommen. Sprites kommen aus dem PokéAPI-Sprite-Archiv.
 
 ## Wo liegen meine Einträge?
 
-In einer IndexedDB-Datenbank namens `pokemon-home-tool` im Browser, auf dem du die Seite benutzt.
-Sie werden **nicht** auf GitHub gespeichert. Die Datenbank enthält:
+Im Browser in der IndexedDB `pokemon-home-tool`:
 
 - `mons`: deine Pokémon, ein Datensatz pro Pokémon
-- `meta`: die Zuordnung Trainer-ID zu OT-Name (`trainers`), den Pokédex-Zwischenspeicher (`dex`)
-  und einen Vermerk über die einmalige Übernahme aus dem alten Speicher
+- `meta`: die Zuordnung Trainer-ID zu OT-Name (`trainers`) und den Pokédex-Zwischenspeicher (`dex`)
 
-Im localStorage liegt nur noch `pkbox.theme` (Hell/Dunkel). Das Tool ruft nie `localStorage.clear()` auf
-und fasst keine Schlüssel anderer Tools an.
-
-Bis zum 25.10.2026 lagen die Daten im localStorage (`pkbox.mons.v1`, `pkbox.trainers.v1`, `pkbox.dex.v1`).
-Beim ersten Start der neuen Version werden sie automatisch in die Datenbank übernommen. Die alten Schlüssel
-werden erst gelöscht, nachdem geprüft wurde, dass alle Einträge in der Datenbank stehen.
+Im localStorage (für alle Tools unter thevizce.github.io gemeinsam) liegen nur zwei kleine Einträge:
+`pkbox.theme` (Hell/Dunkel) und `pkbox.draft` (ein ungespeicherter Editor-Entwurf, damit beim Neuladen
+oder App-Wechsel nichts verloren geht). Das Tool ruft nie `localStorage.clear()` auf und fasst keine
+Schlüssel anderer Tools an.
 
 Kann etwas nicht gespeichert werden (z. B. weil der Speicher voll ist), erscheint oben eine Meldung, die
 stehen bleibt, bis du sie ausblendest.
 
-Für Sicherungen oder einen Gerätewechsel: „Sicherung exportieren" (JSON-Datei) und auf dem anderen Gerät
-„Sicherung importieren".
+## Abgleich zwischen Geräten
+
+Über den gemeinsamen GitHub-Sync der Startseite (`/startseite/sync-v1.js`) mit dem privaten Repo
+`tool-daten`, Ordner `pokemon-home/` (main.json + 16 Teildateien). Abgeglichen werden die Pokémon und
+die Trainer-IDs, nicht der Pokédex-Zwischenspeicher. Eingerichtet wird der Sync einmal pro Gerät auf
+der Startseite; das ☁︎-Feld unten links zeigt den Stand.
+
+Bis zum 11.11.2026 lag der Abgleich in einer einzelnen Datei `pokemon-home.json`. Sie wird nicht mehr
+benutzt und kann gelöscht werden, sobald alle Geräte einmal mit der neuen Version abgeglichen haben.
+
+## Sicherung
+
+„Sicherung exportieren" speichert alle Pokémon und Trainer-IDs als JSON-Datei. „Sicherung importieren"
+liest sie wieder ein: Zusammenführen ergänzt nur fehlende Pokémon, Ersetzen löscht alle anderen,
+durch den Sync auch auf den anderen Geräten.
+
+Daten aus der allerersten Version (bis 25.10.2026, im localStorage) übernimmt das Tool nicht mehr
+automatisch. Liegen auf einem Gerät noch welche, bietet es sie zum Herunterladen an; die Datei lässt
+sich dann importieren.
