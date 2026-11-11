@@ -2,7 +2,7 @@
 
 ## Dieses Tool
 - IndexedDB `pokemon-home-tool` (Stores `mons`, `meta`), localStorage-Präfix `pkbox.`.
-- Sync: Datei `pokemon-home.json`. `collections: mons (array), trainers (map)`.
+- Sync: Ordner `pokemon-home/` mit `shards: 16` (main.json + s00–s15.json, seit 11.11.2026; die Zahl nie ändern). Die alte `pokemon-home.json` im Daten-Repo wird nicht mehr benutzt. `collections: mons (array), trainers (map)`.
 - `SYNC.changed()` steckt in `persist()`. Alle Schreibzugriffe über `persist()` laufen lassen.
 
 ## Gemeinsame Regeln für alle Tools unter thevizce.github.io
