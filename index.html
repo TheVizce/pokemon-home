@@ -191,6 +191,12 @@ dialog::backdrop{background:rgba(10,14,22,.55)}
 .stats .dv{display:block;font-size:12px;color:var(--ink-soft);text-align:right;white-space:nowrap;font-weight:400;font-family:"Atkinson Hyperlegible",sans-serif}
 .stats .dv.warn{color:var(--bad)}
 .potrow select#eChar{max-width:100%}
+.stats .dv.fp{color:var(--accent)}
+.nathint{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.nathint.warn{color:var(--bad)}
+.natpick{border:1px solid var(--line);background:var(--slot);border-radius:999px;padding:2px 10px;font-size:13px;cursor:pointer;color:var(--ink)}
+.natpick:hover{border-color:var(--accent)}
+#fpTotal.warn{color:var(--bad)}
 .plus{color:var(--bad)} .minus{color:var(--accent)}
 .base{display:flex;align-items:center;gap:6px}
 .base i{display:block;max-width:30px;height:6px;border-radius:3px;background:var(--ink-soft);opacity:.5}
@@ -324,6 +330,7 @@ body{padding-left:env(safe-area-inset-left);padding-right:env(safe-area-inset-ri
           </label>
           <label class="f">Wesen <select id="eNature"></select></label>
         </div>
+        <div class="hint nathint" id="natHint" hidden></div>
         <div class="f2">
           <label class="f">Fähigkeit <select id="eAbility"></select></label>
           <label class="f">Tera-Typ <select id="eTera"></select></label>
@@ -363,6 +370,7 @@ body{padding-left:env(safe-area-inset-left);padding-right:env(safe-area-inset-ri
           <thead><tr><th>Wert</th><th>Basis</th><th>Potential</th><th title="Supertraining">ST</th><th style="text-align:right">Statuswert</th></tr></thead>
           <tbody id="statRows"></tbody>
         </table></div>
+        <p class="hint" id="fpTotal"></p>
         <div class="potrow">
           <label for="eIVT">Gesamtpotential</label>
           <select id="eIVT"></select>
@@ -373,7 +381,7 @@ body{padding-left:env(safe-area-inset-left);padding-right:env(safe-area-inset-ri
           <select id="eChar"></select>
         </div>
         <label class="check"><input type="checkbox" id="eNoEV"> Keine Fleißpunkte (die FP-Grafik in Home ist leer)</label>
-        <p class="hint">Trag das Potential so ein, wie Pokémon Home es anzeigt. Statuswerte sind optional: Leer zeigt das Feld den möglichen Bereich, eingetragen grenzt das Tool die DV ein, ebenso die Charakteristik. Ohne den Haken „Keine Fleißpunkte“ rechnet das Tool mit unbekannten FP und kann die DV nur grob eingrenzen. ST = Supertraining.</p>
+        <p class="hint">Trag das Potential so ein, wie Pokémon Home es anzeigt. Statuswerte sind optional: Leer zeigt das Feld den möglichen Bereich. Eingetragen rechnet das Tool zusammen mit Level, Wesen, Potential und Charakteristik die DV und die Fleißpunkte (FP) je Wert aus – je höher das Level, desto genauer. Ohne eingetragenes Wesen schlägt es passende Wesen vor. Ist die FP-Grafik in Home leer, setz den Haken „Keine Fleißpunkte“. ST = Supertraining.</p>
         <h3>Ablage und Notizen</h3>
         <div class="f2">
           <label class="f">Box in Home <input type="text" id="eBox" placeholder="z. B. 3 oder Shinys"></label>
@@ -690,33 +698,91 @@ function hideBanner(){ $("#banner").hidden = true; }
 let MONS = [];           // wird beim Start aus der Datenbank geladen
 const speciesOf = m => (m.pid && BYID.get(m.pid)) || null;
 const displayName = m => m.nick || (speciesOf(m)?.n) || m.species || "Unbekannt";
-// Mögliche echte DV je Wert aus Potential-Stufe, Statuswert und Charakteristik
-function ivCandidates(m){
-  const sp = speciesOf(m), lvl = +m.level || 0, nat = m.nature ?? -1;
-  const S = [0,1,2,3,4,5].map(i => {
-    let s = []; for (let v = 0; v <= 31; v++) s.push(v);
-    const r = m.ivr?.[i]; if (r != null) s = s.filter(v => v >= IVR[r][1] && v <= IVR[r][2]);
-    const sv = m.sv?.[i];
-    if (sv && sp && lvl && !m.ht?.[i]) s = s.filter(v => statSpan(i, sp.b[i], v, lvl, nat, sp.id, m.noEV).has(+sv));
-    return s;
+/* ---------- Rückrechnung: DV und FP aus Potential, Statuswerten, Wesen, Charakteristik ----------
+   Pro Wert gilt: Statuswert = f(Basis, DV + FP/4, Level, Wesen). DV und FP/4 wirken fast gleich,
+   also folgt aus Statuswert und DV-Bereich der FP-Bereich und umgekehrt. Zusätzlich gelten:
+   FP höchstens 252 pro Wert und 510 gesamt, das Gesamtpotential und die Charakteristik.
+   Ohne eingetragenes Wesen werden alle 25 Wesen durchprobiert. */
+const SEQ = n => [...Array(n).keys()];
+const lo_ = a => a.length ? a[0] : 0, hi_ = a => a.length ? a[a.length - 1] : -1;
+function inferFor(m, nat, sp, lvl){
+  const st = SEQ(6).map(i => {
+    let ivs = SEQ(32);
+    const r = m.ivr?.[i]; if (r != null && !m.ht?.[i]) ivs = ivs.filter(v => v >= IVR[r][1] && v <= IVR[r][2]);
+    let es = m.noEV ? [0] : SEQ(64), pairs = null;
+    const sv = +m.sv?.[i] || 0;
+    if (sv && sp && lvl){
+      pairs = [];
+      for (const iv of ivs) for (const e of es) if (calcStat(i, sp.b[i], m.ht?.[i] ? 31 : iv, e * 4, lvl, nat, sp.id) === sv) pairs.push([iv, e]);
+    }
+    return { ivs, es, pairs, ht: !!m.ht?.[i] };
   });
-  if (m.char != null){
-    const c = Math.floor(m.char / 5), rest = m.char % 5;
-    S[c] = S[c].filter(v => v % 5 === rest);
-    for (let k = 0; k < 2; k++){
-      const maxC = S[c].length ? Math.max(...S[c]) : -1;
-      for (let i = 0; i < 6; i++) if (i !== c) S[i] = S[i].filter(v => v <= maxC);
-      const floor = Math.max(0, ...S.filter((_, i) => i !== c).map(s => s.length ? Math.min(...s) : 0));
-      S[c] = S[c].filter(v => v >= floor);
+  const sync = s => {
+    if (!s.pairs) return;
+    const I = new Set(s.ivs), E = new Set(s.es);
+    s.pairs = s.pairs.filter(([a, b]) => I.has(a) && E.has(b));
+    s.ivs = [...new Set(s.pairs.map(q => q[0]))].sort((a, b) => a - b);
+    s.es = [...new Set(s.pairs.map(q => q[1]))].sort((a, b) => a - b);
+  };
+  st.forEach(sync);
+  const effLo = s => s.ht ? 31 : lo_(s.ivs), effHi = s => s.ht ? 31 : hi_(s.ivs);
+  for (let round = 0; round < 10; round++){
+    const before = st.map(s => s.ivs.length + "/" + s.es.length).join();
+    if (m.char != null){                       // höchster echter DV, Rest bei Teilung durch 5
+      const c = Math.floor(m.char / 5), rest = m.char % 5;
+      st[c].ivs = st[c].ivs.filter(v => v % 5 === rest);
+      const maxC = hi_(st[c].ivs);
+      st.forEach((s, i) => { if (i !== c) s.ivs = s.ivs.filter(v => v <= maxC); });
+      const floor = Math.max(0, ...st.map((s, i) => i === c ? 0 : lo_(s.ivs)));
+      st[c].ivs = st[c].ivs.filter(v => v >= floor);
+    }
+    if (m.ivt != null){                        // Gesamtpotential (Supertraining zählt als 31)
+      const [, lo, hi] = IVT[m.ivt];
+      const sMin = st.reduce((a, s) => a + effLo(s), 0), sMax = st.reduce((a, s) => a + effHi(s), 0);
+      st.forEach(s => { if (s.ht) return; const oMin = sMin - effLo(s), oMax = sMax - effHi(s); s.ivs = s.ivs.filter(v => v >= lo - oMax && v <= hi - oMin); });
+    }
+    const eMin = st.reduce((a, s) => a + lo_(s.es), 0);   // 510 FP gesamt: Summe der FP/4 höchstens 127
+    st.forEach(s => { const room = 127 - (eMin - lo_(s.es)); s.es = s.es.filter(x => x <= room); });
+    st.forEach(sync);
+    if (st.some(s => !s.ivs.length || !s.es.length)) break;
+    if (st.map(s => s.ivs.length + "/" + s.es.length).join() === before) break;
+  }
+  return { st, ok: st.every(s => s.ivs.length && s.es.length) };
+}
+const INFER = new WeakMap();
+// Ergebnis: st[i].ivs (mögliche echte DV), st[i].es (mögliche FP/4), ok, natures (passende Wesen, nur ohne eingetragenes Wesen)
+function infer(m){
+  const hit = INFER.get(m); if (hit) return hit;
+  const sp = speciesOf(m), lvl = +m.level || 0;
+  const hasSv = !!(sp && lvl && (m.sv || []).some(Boolean));
+  let res;
+  if (m.nature != null && m.nature !== "") res = { ...inferFor(m, +m.nature, sp, lvl), natures: null, hasSv };
+  else if (!hasSv) res = { ...inferFor(m, -1, sp, lvl), natures: null, hasSv };
+  else {
+    const all = NATURES.map((_, n) => inferFor(m, n, sp, lvl)), good = SEQ(25).filter(n => all[n].ok);
+    if (!good.length) res = { ...inferFor(m, -1, sp, lvl), ok: false, natures: [], hasSv };
+    else {
+      const uni = arrs => [...new Set(arrs.flat())].sort((a, b) => a - b);
+      res = { st: SEQ(6).map(i => ({ ivs: uni(good.map(n => all[n].st[i].ivs)), es: uni(good.map(n => all[n].st[i].es)), ht: !!m.ht?.[i] })), ok: true, natures: good, hasSv };
     }
   }
-  return S;
+  INFER.set(m, res);
+  return res;
 }
+const ivCandidates = m => infer(m).st.map(s => s.ivs);
 // wirksamer Bereich (Supertraining zählt als 31); null = Widerspruch
 function ivRange(m, i, S){
   if (m.ht?.[i]) return [31, 31];
   const s = (S || ivCandidates(m))[i];
-  return s.length ? [Math.min(...s), Math.max(...s)] : null;
+  return s.length ? [s[0], s[s.length - 1]] : null;
+}
+// FP-Bereich jedes Werts aus FP/4, mit 252 pro Wert und 510 gesamt; null = keine Aussage
+function fpRanges(st){
+  const lo = st.map(s => s.es.length ? s.es[0] * 4 : 0), sumLo = lo.reduce((a, b) => a + b, 0);
+  return st.map((s, i) => {
+    if (!s.es.length || (s.es[0] === 0 && s.es[s.es.length - 1] === 63)) return null;
+    return [lo[i], Math.min(252, s.es[s.es.length - 1] * 4 + 3, 510 - (sumLo - lo[i]))];
+  });
 }
 const ivSumRange = m => { const S = ivCandidates(m); return [0,1,2,3,4,5].reduce((s, i) => { const r = ivRange(m, i, S) || [0, 31]; return [s[0] + r[0], s[1] + r[1]]; }, [0, 0]); };
 const ivKnown = m => m.ivt != null || m.char != null || (m.ivr || []).some(v => v != null) || (m.ht || []).some(Boolean) || (m.sv || []).some(Boolean);
@@ -744,13 +810,6 @@ function migrate(m){
   return m;
 }
 
-// FP stehen in Home nur als Grafik: ohne "keine FP" sind alle Werte 0–252 möglich
-const EV_STEPS = [...Array(64).keys()].map(k => k * 4);
-function statSpan(i, base, iv, lvl, nat, pid, noEV){
-  const out = new Set();
-  for (const ev of noEV ? [0] : EV_STEPS){ const v = calcStat(i, base, iv, ev, lvl, nat, pid); if (v != null) out.add(v); }
-  return out;
-}
 function calcStat(i, base, iv, ev, lvl, nat, pid){
   if (!base) return null;
   if (i === 0){ if (pid === 292) return 1; return Math.floor((2*base + iv + Math.floor(ev/4)) * lvl / 100) + lvl + 10; }
@@ -1025,7 +1084,7 @@ function buildStatRows(){
     <td><span class="base"><span id="sb${i}">–</span><i id="sbb${i}"></i></span></td>
     <td><select id="ivr${i}" aria-label="Potential ${s}"><option value="">?</option>${IVR.map((r, k) => `<option value="${k}">${r[0]}</option>`).join("")}</select></td>
     <td><input type="checkbox" id="ht${i}" aria-label="Supertraining ${s}" title="Supertraining"></td>
-    <td class="val"><input type="text" inputmode="numeric" class="svin" id="sv${i}" aria-label="Statuswert ${s} laut Home"><span class="dv" id="dv${i}"></span></td></tr>`).join("");
+    <td class="val"><input type="text" inputmode="numeric" class="svin" id="sv${i}" aria-label="Statuswert ${s} laut Home"><span class="dv" id="dv${i}"></span><span class="dv fp" id="fp${i}"></span></td></tr>`).join("");
 }
 function currentSpecies(){ return BYNAME.get($("#eSpecies").value.trim().toLowerCase()) || null; }
 
@@ -1047,26 +1106,38 @@ function refreshEditor(){
   const lvlRaw = +$("#eLevel").value, lvl = lvlRaw ? Math.min(100, Math.max(1, lvlRaw)) : 0;   // 0 = Level unbekannt
   const nat = $("#eNature").value === "" ? -1 : +$("#eNature").value, n = NATURES[nat];
   const probe = { ...readEditor(), pid: sp?.id || null, level: lvl || "", nature: nat < 0 ? null : nat };
-  const S = ivCandidates(probe);
+  const res = infer(probe), S = res.st.map(x => x.ivs), FPR = fpRanges(res.st);
+  // Wesen, mit denen gerechnet wird: eingetragen, sonst die passenden (für die Platzhalter)
+  const natList = nat >= 0 ? [nat] : res.natures && res.natures.length ? res.natures : SEQ(25);
   for (let i = 0; i < 6; i++){
-    const base = sp?.b[i] || 0, ht = probe.ht[i], evHi = probe.noEV ? 0 : 252;
+    const base = sp?.b[i] || 0, ht = probe.ht[i], stI = res.st[i];
     $("#ivr" + i).disabled = ht;
     $("#sb" + i).textContent = base || "–";
     $("#sbb" + i).style.width = base ? Math.min(30, base / 255 * 30) + "px" : "0";
-    const rg = ivRange(probe, i, S), dv = $("#dv" + i), inp = $("#sv" + i);
-    if (!rg){ inp.placeholder = ""; dv.textContent = "Widerspruch"; dv.className = "dv warn"; }
+    const rg = ivRange(probe, i, S), dv = $("#dv" + i), fp = $("#fp" + i), inp = $("#sv" + i);
+    if (!rg || !stI.es.length){ inp.placeholder = ""; dv.textContent = "Widerspruch"; dv.className = "dv warn"; fp.textContent = ""; }
     else {
-      const a = lvl ? calcStat(i, base, rg[0], 0, lvl, nat, sp?.id) : null, b = lvl ? calcStat(i, base, rg[1], evHi, lvl, nat, sp?.id) : null;
+      let a = null, b = null;
+      if (lvl && base) for (const n of natList){
+        const x = calcStat(i, base, rg[0], stI.es[0] * 4, lvl, n, sp.id), y = calcStat(i, base, rg[1], stI.es[stI.es.length - 1] * 4, lvl, n, sp.id);
+        a = a == null ? x : Math.min(a, x); b = b == null ? y : Math.max(b, y);
+      }
       inp.placeholder = a == null ? "" : a === b ? a : `${a}–${b}`;
       dv.className = "dv";
       dv.textContent = ht ? "Supertr." : (rg[0] === 0 && rg[1] === 31) ? "" : rg[0] === rg[1] ? `DV ${rg[0]}` : `DV ${rg[0]}–${rg[1]}`;
+      const f = probe.noEV ? null : FPR[i];
+      fp.textContent = f ? (f[0] === f[1] ? `FP ${f[0]}` : `FP ${f[0]}–${f[1]}`) : "";
     }
     const name = $("#sn" + i);
-    name.className = n && n[1] === i && n[2] !== i ? "plus" : n && n[2] === i && n[1] !== i ? "minus" : "";
+    const nn = nat >= 0 ? n : null;
+    name.className = nn && nn[1] === i && nn[2] !== i ? "plus" : nn && nn[2] === i && nn[1] !== i ? "minus" : "";
     const arrow = name.className === "plus" ? " ↑" : name.className === "minus" ? " ↓" : "";
     name.innerHTML = `<span class="lg">${STATS[i]}${arrow}</span><span class="sm">${STATS_SHORT[i]}${arrow}</span>`;
   }
-  const [slo, shi] = ivSumRange(probe), tv = $("#eIVT").value, tEl = $("#ivTotal");
+  showFpTotal(probe, res);
+  showNatureHint(probe, res, nat);
+  // Gesamtpotential gegen die Einzelwerte prüfen: dafür ohne die eigene Vorgabe rechnen
+  const [slo, shi] = ivSumRange({ ...probe, ivt: null }), tv = $("#eIVT").value, tEl = $("#ivTotal");
   const anyKnown = probe.ivr.some(v => v != null) || probe.ht.some(Boolean) || probe.sv.some(Boolean) || probe.char != null;
   if (!anyKnown){ tEl.textContent = ""; tEl.className = "hint"; }
   else {
@@ -1076,6 +1147,47 @@ function refreshEditor(){
     tEl.textContent = clash ? `Passt nicht zu den Einzelwerten (Summe ${slo}–${shi}). Bitte prüfen.` : `Einzelwerte ergeben ${slo}–${shi} von 186${fits.length === 1 && tv === "" ? `, also „${fits[0]}“` : ""}.`;
   }
 }
+
+// Fleißpunkte gesamt und Hinweise, wenn die Angaben nicht zusammenpassen
+function showFpTotal(m, res){
+  const el = $("#fpTotal"); el.className = "hint"; el.textContent = "";
+  if (!res.ok){
+    if (m.noEV && infer({ ...m, noEV: false }).ok){ el.className = "hint warn"; el.textContent = "Mit „Keine Fleißpunkte“ gehen die Statuswerte nicht auf – das Pokémon hat wohl doch FP. Nimm den Haken heraus."; return; }
+    if (res.hasSv && !(m.nature != null && infer({ ...m, nature: null }).ok)){ el.className = "hint warn"; el.textContent = "Die Angaben passen nicht zusammen. Prüfe Level, Wesen, Potential, Charakteristik und die Statuswerte."; }
+    return;
+  }
+  if (m.noEV || !res.hasSv) return;
+  const fr = fpRanges(res.st);
+  if (!fr.some(Boolean)) return;
+  const open = fr.some(f => !f);   // mindestens ein Wert ohne jede Aussage
+  const lo = res.st.reduce((a, s) => a + s.es[0] * 4, 0);
+  const hi = Math.min(510, fr.reduce((a, f) => a + (f ? f[1] : 252), 0));
+  el.textContent = open && hi >= 510 ? `Fleißpunkte gesamt: mindestens ${lo} von 510.` : lo === hi ? `Fleißpunkte gesamt: ${lo} von 510.` : `Fleißpunkte gesamt: ${lo}–${hi} von 510.`;
+}
+// Wesen aus den Statuswerten: ohne Eintrag passende vorschlagen, bei Widerspruch Alternativen nennen
+function showNatureHint(m, res, nat){
+  const el = $("#natHint");
+  // nur neu zeichnen, wenn sich etwas ändert: sonst geht ein Klick verloren, den das Verlassen eines Eingabefelds auslöst
+  const show = (html, warn) => {
+    const key = (warn ? "w:" : "") + html;
+    if (el.dataset.key === key) return;
+    el.dataset.key = key; el.hidden = !html; el.className = "hint nathint" + (warn ? " warn" : ""); el.innerHTML = html;
+  };
+  if (!res.hasSv) return show("");
+  const pick = list => list.map(n => `<button type="button" class="natpick" data-nat="${n}">${NATURES[n][0]}</button>`).join("");
+  if (nat < 0){
+    const list = res.natures || [];
+    if (!list.length || list.length === 25) return show("");
+    show(`<span>${list.length === 1 ? "Laut Statuswerten:" : "Passend zu den Statuswerten:"}</span>${pick(list)}`);
+  } else if (!res.ok){
+    const alt = infer({ ...m, nature: null }).natures || [];
+    show(alt.length ? `<span>Mit „${NATURES[nat][0]}“ passen die Statuswerte nicht. Möglich wären:</span>${pick(alt)}` : "", true);
+  } else show("");
+}
+$("#natHint").addEventListener("click", e => {
+  const b = e.target.closest("[data-nat]"); if (!b) return;
+  $("#eNature").value = b.dataset.nat; refreshEditor(); saveDraft();
+});
 
 function openEditor(id, draft){
   if (!ed.dataset.built){
