@@ -32,6 +32,7 @@
   --accent:#6F95F0; --accent-ink:#0E1420; --slot:#252D3A; --shiny:#E2B341;
 }
 *{box-sizing:border-box}
+[hidden]{display:none!important}
 :root{color-scheme:light dark}
 :root[data-theme="light"]{color-scheme:light}
 :root[data-theme="dark"]{color-scheme:dark}
@@ -93,6 +94,56 @@ input[type=checkbox]{width:18px;height:18px;accent-color:var(--accent)}
 .types{display:flex;gap:4px;flex-wrap:wrap}
 .type{font-size:12px;font-weight:700;color:#fff;padding:1px 8px;border-radius:999px;text-shadow:0 1px 1px rgba(0,0,0,.35)}
 
+/* Ansicht umschalten */
+.viewbar{grid-column:1/-1;display:flex;gap:4px;background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:4px;justify-self:start;max-width:100%}
+.viewbar button{border:0;background:transparent;border-radius:999px;padding:8px 18px;font-weight:700;cursor:pointer;color:var(--ink-soft);min-height:38px}
+.viewbar button[aria-selected="true"]{background:var(--accent);color:var(--accent-ink)}
+.wrap.dexmode{grid-template-columns:1fr}
+.wrap.dexmode .side{display:none}
+
+/* Unvollständige Einträge */
+.mon.todo{border-style:dashed;border-color:var(--ink-soft)}
+.mon .todotag{font-size:12px;font-weight:700;color:var(--ink-soft);border:1px dashed var(--ink-soft);border-radius:999px;padding:0 8px;justify-self:start}
+.todo-check{padding:8px 10px;border:1px dashed var(--line);border-radius:var(--radius-sm)}
+
+/* Dex-Erfassung */
+.dexbar{display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center;background:var(--panel);border:1px solid var(--line);border-radius:var(--radius-lg);padding:12px 14px;position:sticky;top:calc(8px + env(safe-area-inset-top));z-index:3}
+.dexbar input[type=search]{width:min(260px,100%)}
+.dexhelp{margin:10px 2px}
+.dexhead,.dexrow > .main{display:grid;grid-template-columns:56px minmax(0,1fr) 150px 150px;gap:10px;align-items:center}
+.dexhead{font-size:13px;color:var(--ink-soft);font-weight:700;padding:0 14px 4px}
+.dexhead span:nth-child(3),.dexhead span:nth-child(4){text-align:center}
+.dexlist{list-style:none;margin:0;padding:0;display:grid;gap:6px}
+.dexrow{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius-sm);padding:6px 14px;scroll-margin-top:90px}
+.dexrow.has{border-left:4px solid var(--good)}
+.dexrow.hit{outline:3px solid var(--accent);outline-offset:1px}
+.dexrow .dsprite{width:56px;height:56px;image-rendering:pixelated}
+.dexrow .no{color:var(--ink-soft);font-size:13px;font-variant-numeric:tabular-nums}
+.dexrow .nm{font-weight:700}
+.dexrow .meta{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:2px}
+.formbtn{border:1px solid var(--line);background:var(--slot);border-radius:999px;font-size:12px;padding:1px 10px;cursor:pointer;color:var(--ink)}
+.ctr{display:flex;align-items:center;justify-content:center;gap:6px}
+.ctr b{min-width:2ch;text-align:center;font-family:"Bricolage Grotesque",sans-serif;font-size:20px;font-variant-numeric:tabular-nums}
+.ctr.zero b{color:var(--ink-soft);font-weight:500}
+.ctr.sh b{color:var(--shiny)}
+.step{width:40px;height:40px;border-radius:50%;border:1px solid var(--line);background:var(--slot);font-size:20px;font-weight:700;cursor:pointer;line-height:1}
+.step:hover{border-color:var(--ink-soft)}
+.step.add{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.ctr.sh .step.add{background:var(--shiny);border-color:var(--shiny);color:#1D2433}
+.step:disabled{opacity:.35;cursor:default}
+.forms{list-style:none;margin:6px 0 2px;padding:6px 0 0;border-top:1px dashed var(--line);display:grid;gap:4px}
+.forms .main{display:grid;grid-template-columns:56px minmax(0,1fr) 150px 150px;gap:10px;align-items:center}
+.forms .fsprite{width:40px;height:40px;image-rendering:pixelated;justify-self:center}
+.forms .nm{font-weight:400}
+.ctr .lbl{display:none}
+@media (max-width:640px){
+  .dexhead{display:none}
+  .dexrow > .main,.forms .main{grid-template-columns:44px minmax(0,1fr);row-gap:4px}
+  .dexrow .dsprite{width:44px;height:44px}
+  .forms .fsprite{width:34px;height:34px}
+  .ctr{grid-column:2;justify-content:flex-start}
+  .ctr .lbl{display:inline;font-size:13px;color:var(--ink-soft);min-width:52px}
+}
 .empty{background:var(--panel);border:2px dashed var(--line);border-radius:var(--radius-lg);padding:48px 24px;text-align:center}
 .empty p{color:var(--ink-soft);max-width:46ch;margin:8px auto 18px}
 
@@ -183,6 +234,10 @@ body{padding-left:env(safe-area-inset-left);padding-right:env(safe-area-inset-ri
 <div class="banner" id="banner" hidden></div>
 
 <main class="wrap">
+  <div class="viewbar" role="tablist" aria-label="Ansicht">
+    <button role="tab" id="tabBoxes" aria-selected="true" aria-controls="box">Meine Pokémon</button>
+    <button role="tab" id="tabDex" aria-selected="false" aria-controls="dexView">Nach Dex erfassen</button>
+  </div>
   <aside class="side" aria-label="Filter und Aktionen">
     <button class="btn primary" id="addBtn">Pokémon hinzufügen</button>
     <label>Suchen
@@ -201,6 +256,7 @@ body{padding-left:env(safe-area-inset-left);padding-right:env(safe-area-inset-ri
       <select id="fPot"><option value="">Alle</option></select>
     </label>
     <label class="row"><input type="checkbox" id="fShiny"> Nur Shinys</label>
+    <label class="row"><input type="checkbox" id="fTodo"> Nur unvollständige <span class="hint" id="todoCount"></span></label>
     <label>Sortieren nach
       <select id="sort">
         <option value="dex">Pokédex-Nummer</option>
@@ -226,7 +282,18 @@ body{padding-left:env(safe-area-inset-left);padding-right:env(safe-area-inset-ri
   </aside>
 
   <section aria-label="Deine Pokémon">
-    <div class="box" id="box"></div>
+    <div class="box" id="box" role="tabpanel" aria-labelledby="tabBoxes"></div>
+    <div id="dexView" role="tabpanel" aria-labelledby="tabDex" hidden>
+      <div class="dexbar">
+        <input type="search" id="dexQ" placeholder="Nummer oder Name" aria-label="Zu Nummer springen oder nach Name filtern" autocomplete="off">
+        <label class="check"><input type="checkbox" id="dexMissing"> Nur ohne Eintrag</label>
+        <button class="btn small" id="dexResume" hidden></button>
+        <span class="hint" id="dexProgress"></span>
+      </div>
+      <p class="hint dexhelp">Geh deine Home-Liste nach Dex-Nummer durch und zähl mit + hoch. Jeder Tipp legt ein Pokémon an, das als unvollständig markiert ist; die Details trägst du später unter „Meine Pokémon“ nach. Mit − entfernst du nur solche Schnell-Einträge, die du noch nicht bearbeitet hast.</p>
+      <div class="dexhead" aria-hidden="true"><span></span><span>Pokémon</span><span>Normal</span><span>Shiny</span></div>
+      <ul class="dexlist" id="dexList"></ul>
+    </div>
   </section>
 </main>
 
@@ -266,6 +333,7 @@ body{padding-left:env(safe-area-inset-left);padding-right:env(safe-area-inset-ri
           <label class="check"><input type="checkbox" id="eAlpha"> Alpha</label>
           <label class="check"><input type="checkbox" id="eGmax"> Gigadynamax-fähig</label>
         </div>
+        <label class="check todo-check"><input type="checkbox" id="eTodo"> Noch unvollständig (Details fehlen noch)</label>
         <h3>Herkunft</h3>
         <div class="f2">
           <label class="f">ID-Nr. <input type="text" id="eTID" inputmode="numeric" list="tidList" autocomplete="off"></label>
@@ -386,6 +454,7 @@ const SPRITE = (id, shiny) => `https://raw.githubusercontent.com/PokeAPI/sprites
 // Speicher: alle Daten in IndexedDB "pokemon-home-tool"; im localStorage nur Hell/Dunkel und ein Editor-Entwurf
 const DB_NAME = "pokemon-home-tool", DB_VERSION = 1;
 const THEME_KEY = "pkbox.theme";
+const VIEW_KEY = "pkbox.view", DEXPOS_KEY = "pkbox.dexpos";   // Ansicht und „weiter bei #…“ (nur Anzeige)
 const DRAFT_KEY = "pkbox.draft";   // ungespeicherter Editor-Inhalt (ein Pokémon, wenige KB)
 const DE = 6, EN = 9;
 
@@ -712,7 +781,7 @@ function fillBoxFilter(){
 
 function render(){
   fillBoxFilter();
-  const fp = $("#fPot").value;
+  const fp = $("#fPot").value, ftodo = $("#fTodo").checked;
   const q = $("#q").value.trim().toLowerCase(), ft = +$("#fType").value || 0, fn = $("#fNature").value, fb = $("#fBox").value, fs = $("#fShiny").checked;
   let list = MONS.filter(m => {
     const sp = speciesOf(m);
@@ -720,6 +789,7 @@ function render(){
     if (fn !== "" && String(m.nature) !== fn) return false;
     if (fb && m.box !== fb) return false;
     if (fs && !m.shiny) return false;
+    if (ftodo && !m.incomplete) return false;
     if (fp !== "" && (fp === "none" ? totalTier(m) != null : String(totalTier(m)) !== fp)) return false;
     if (q){
       const hay = [displayName(m), sp?.n, m.species, m.notes, (m.tags || []).join(" "), m.ot, m.loc, m.origin].join(" ").toLowerCase();
@@ -740,16 +810,12 @@ function render(){
   }[s];
   list.sort(cmp);
 
-  $("#cTotal").textContent = MONS.length;
-  const owned = new Set(MONS.map(m => speciesOf(m)?.s).filter(Boolean));
-  $("#cSpecies").textContent = owned.size;
-  const maxSpecies = DEX ? new Set(DEX.p.map(x => x.s)).size : 0;
-  $("#cSpeciesLbl").textContent = maxSpecies ? `von ${maxSpecies} Arten` : "verschiedene Arten";
-  $("#cShiny").textContent = MONS.filter(m => m.shiny).length;
+  updateCounts();
+  if (VIEW === "dex"){ renderDex(); return; }
 
   const box = $("#box");
   if (!MONS.length){
-    box.innerHTML = `<div class="empty" style="grid-column:1/-1"><h2>Deine Boxen sind noch leer</h2><p>Trag dein erstes Pokémon ein. Typen, Fähigkeiten und Basiswerte werden automatisch ergänzt, sobald du die Art auswählst.</p><button class="btn primary" onclick="openEditor()">Pokémon hinzufügen</button></div>`;
+    box.innerHTML = `<div class="empty" style="grid-column:1/-1"><h2>Deine Boxen sind noch leer</h2><p>Trag dein erstes Pokémon ein. Typen, Fähigkeiten und Basiswerte werden automatisch ergänzt, sobald du die Art auswählst. Für viele auf einmal: „Nach Dex erfassen“.</p><div class="btnrow" style="justify-content:center"><button class="btn primary" onclick="openEditor()">Pokémon hinzufügen</button><button class="btn" onclick="setView('dex')">Nach Dex erfassen</button></div></div>`;
     return;
   }
   if (!list.length){ box.innerHTML = `<div class="empty" style="grid-column:1/-1"><h2>Keine Treffer</h2><p>Kein Pokémon passt zu diesen Filtern. Ändere die Suche oder setze die Filter zurück.</p><button class="btn" onclick="resetFilters()">Filter zurücksetzen</button></div>`; return; }
@@ -761,7 +827,7 @@ function render(){
       return `<i class="${ht ? "ht" : unk ? "unk" : ""}" title="${STATS[i]}: ${ht ? "Supertraining" : unk ? "unbekannt" : rg[0] === rg[1] ? "DV " + rg[0] : `DV ${rg[0]}–${rg[1]}`}"><b style="height:${h}%"></b></i>`; }).join("");
     const nat = NATURES[m.nature]?.[0];
     const g = m.gender === "m" ? " ♂" : m.gender === "f" ? " ♀" : "";
-    return `<button class="mon" data-id="${m.id}" aria-label="${esc(displayName(m))} bearbeiten">
+    return `<button class="mon${m.incomplete ? " todo" : ""}" data-id="${m.id}" aria-label="${esc(displayName(m))} bearbeiten${m.incomplete ? " (unvollständig)" : ""}">
       ${m.box ? `<span class="loc">Box ${esc(m.box)}${m.slot ? `/${m.slot}` : ""}</span>` : ""}
       ${m.shiny ? `<span class="star" title="Shiny">★</span>` : ""}
       <img class="sprite" loading="lazy" alt="" src="${sp ? SPRITE(sp.id, m.shiny) : "data:image/gif;base64,R0lGODlhAQABAAAAACw="}" onerror="this.style.visibility='hidden'">
@@ -770,10 +836,153 @@ function render(){
       <span class="types">${(sp?.t || []).map(typeChip).join("")}</span>
       <span class="sub"><span>${nat || "Wesen ?"}</span><span class="${tt != null ? "pot" : ""}">${tt != null ? IVT[tt][0] : "Potential ?"}</span></span>
       ${ivKnown(m) ? `<span class="pips" aria-hidden="true">${pips}</span>` : ""}
+      ${m.incomplete ? `<span class="todotag">Unvollständig</span>` : ""}
     </button>`;
   }).join("");
 }
-function resetFilters(){ $("#q").value = ""; $("#fType").value = ""; $("#fNature").value = ""; $("#fBox").value = ""; $("#fShiny").checked = false; $("#fPot").value = ""; render(); }
+function updateCounts(){
+  $("#cTotal").textContent = MONS.length;
+  const owned = new Set(MONS.map(m => speciesOf(m)?.s).filter(Boolean));
+  $("#cSpecies").textContent = owned.size;
+  const maxSpecies = DEX ? new Set(DEX.p.map(x => x.s)).size : 0;
+  $("#cSpeciesLbl").textContent = maxSpecies ? `von ${maxSpecies} Arten` : "verschiedene Arten";
+  $("#cShiny").textContent = MONS.filter(m => m.shiny).length;
+  const todo = MONS.filter(m => m.incomplete).length;
+  $("#todoCount").textContent = todo ? `(${todo})` : "";
+}
+function resetFilters(){ $("#q").value = ""; $("#fType").value = ""; $("#fNature").value = ""; $("#fBox").value = ""; $("#fShiny").checked = false; $("#fPot").value = ""; $("#fTodo").checked = false; render(); }
+
+/* ---------- Ansicht: Meine Pokémon / Nach Dex erfassen ---------- */
+let VIEW = ls.get(VIEW_KEY, "boxes") === "dex" ? "dex" : "boxes";
+const dexOpen = new Set();     // Arten, deren Formen aufgeklappt sind
+function setView(v){
+  VIEW = v; ls.set(VIEW_KEY, v);
+  $(".wrap").classList.toggle("dexmode", v === "dex");
+  $("#tabBoxes").setAttribute("aria-selected", v === "boxes"); $("#tabDex").setAttribute("aria-selected", v === "dex");
+  $("#box").hidden = v === "dex"; $("#dexView").hidden = v !== "dex";
+  render();
+}
+function dexGroups(){
+  if (dexGroups.dex === DEX) return dexGroups.list;
+  const g = new Map();
+  for (const x of DEX.p){ if (!g.has(x.s)) g.set(x.s, []); g.get(x.s).push(x); }
+  dexGroups.list = [...g.entries()].sort((a, b) => a[0] - b[0]).map(([s, list]) => {
+    list.sort((a, b) => (a.id === s ? -1 : b.id === s ? 1 : a.id - b.id));   // Grundform zuerst
+    return { s, base: list[0], forms: list.slice(1) };
+  });
+  dexGroups.dex = DEX;
+  return dexGroups.list;
+}
+function monCounts(){
+  const c = new Map();
+  for (const m of MONS){ if (!m.pid) continue; const e = c.get(m.pid) || { n: 0, sh: 0, qn: 0, qs: 0 };
+    if (m.shiny){ e.sh++; if (m.quick) e.qs++; } else { e.n++; if (m.quick) e.qn++; } c.set(m.pid, e); }
+  return c;
+}
+const pad3 = n => String(n).padStart(4, "0");
+function counterHtml(x, c, shiny){
+  const e = c.get(x.id) || { n: 0, sh: 0, qn: 0, qs: 0 }, n = shiny ? e.sh : e.n, q = shiny ? e.qs : e.qn;
+  const what = `${shiny ? "Shiny-" : ""}${x.n}`;
+  return `<div class="ctr${shiny ? " sh" : ""}${n ? "" : " zero"}">
+    <span class="lbl">${shiny ? "Shiny" : "Normal"}</span>
+    <button class="step sub" data-act="sub" data-pid="${x.id}" data-shiny="${shiny ? 1 : 0}" aria-label="Ein ${esc(what)} weniger"${q ? "" : " disabled"}>−</button>
+    <b aria-label="${n} ${esc(what)}">${n}</b>
+    <button class="step add" data-act="add" data-pid="${x.id}" data-shiny="${shiny ? 1 : 0}" aria-label="Ein ${esc(what)} mehr">+</button>
+  </div>`;
+}
+function dexRowHtml(g, c){
+  const tot = x => { const e = c.get(x.id); return e ? e.n + e.sh : 0; };
+  const formTotal = g.forms.reduce((s, f) => s + tot(f), 0), total = tot(g.base) + formTotal;
+  const open = dexOpen.has(g.s) || formTotal > 0;
+  return `<li class="dexrow${total ? " has" : ""}" id="dex-${g.s}" data-s="${g.s}">
+    <div class="main">
+      <img class="dsprite" loading="lazy" alt="" src="${SPRITE(g.base.id, false)}" onerror="this.style.visibility='hidden'">
+      <div><span class="no">#${pad3(g.s)}</span> <span class="nm">${esc(g.base.n)}</span>
+        <div class="meta"><span class="types">${g.base.t.map(typeChip).join("")}</span>
+        ${g.forms.length ? `<button class="formbtn" data-forms="${g.s}" aria-expanded="${open}">${open ? "Formen ausblenden" : `Formen (${g.forms.length})`}</button>` : ""}</div>
+      </div>
+      ${counterHtml(g.base, c, false)}${counterHtml(g.base, c, true)}
+    </div>
+    ${g.forms.length && open ? `<ul class="forms">${g.forms.map(f => `<li class="main">
+      <img class="fsprite" loading="lazy" alt="" src="${SPRITE(f.id, false)}" onerror="this.style.visibility='hidden'">
+      <span class="nm">${esc(f.n)}</span>${counterHtml(f, c, false)}${counterHtml(f, c, true)}</li>`).join("")}</ul>` : ""}
+  </li>`;
+}
+function dexVisible(){
+  const q = $("#dexQ").value.trim().toLowerCase(), missing = $("#dexMissing").checked, c = monCounts();
+  const has = g => [g.base, ...g.forms].some(x => c.has(x.id));
+  return dexGroups().filter(g => {
+    if (missing && has(g)) return false;
+    if (q && !/^#?\d+$/.test(q)) return [g.base, ...g.forms].some(x => x.n.toLowerCase().includes(q));
+    return true;
+  });
+}
+function renderDex(){
+  const list = $("#dexList");
+  if (!DEX){ list.innerHTML = `<li class="empty">Die Pokédex-Daten werden noch geladen…</li>`; return; }
+  const c = monCounts(), groups = dexVisible();
+  list.innerHTML = groups.length ? groups.map(g => dexRowHtml(g, c)).join("")
+    : `<li class="empty"><h2>Keine Treffer</h2><p>Kein Pokémon passt zu dieser Suche.</p></li>`;
+  const all = dexGroups(), withEntry = all.filter(g => [g.base, ...g.forms].some(x => c.has(x.id))).length;
+  $("#dexProgress").textContent = `${withEntry} von ${all.length} Arten mit Eintrag`;
+  const pos = ls.get(DEXPOS_KEY, null), btn = $("#dexResume");
+  btn.hidden = !pos; if (pos) btn.textContent = `Weiter bei #${pad3(pos)}`;
+}
+function updateDexRow(s, focusSel){
+  const g = dexGroups().find(x => x.s === s), li = $("#dex-" + s);
+  if (!g || !li) return renderDex();
+  li.outerHTML = dexRowHtml(g, monCounts());
+  if (focusSel){ const el = $(`#dex-${s} ${focusSel}`); if (el && !el.disabled) el.focus(); }
+  updateCounts(); renderDexProgress();
+}
+function renderDexProgress(){
+  const c = monCounts(), all = dexGroups();
+  $("#dexProgress").textContent = `${all.filter(g => [g.base, ...g.forms].some(x => c.has(x.id))).length} von ${all.length} Arten mit Eintrag`;
+}
+function jumpToDex(n){
+  let li = $("#dex-" + n);
+  if (!li && ($("#dexQ").value || $("#dexMissing").checked) && !/^#?\d+$/.test($("#dexQ").value.trim())){ $("#dexQ").value = ""; $("#dexMissing").checked = false; renderDex(); li = $("#dex-" + n); }
+  if (!li) return false;
+  li.scrollIntoView({ block: "start", behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
+  li.classList.add("hit"); setTimeout(() => li.classList.remove("hit"), 1600);
+  return true;
+}
+async function dexStep(pid, shiny, act){
+  const x = BYID.get(pid); if (!x) return;
+  ls.set(DEXPOS_KEY, x.s);
+  if (act === "add"){
+    const m = { id: newId(), added: Date.now(), pid, species: "", level: "", ivr: [null,null,null,null,null,null], shiny, incomplete: true, quick: true };
+    MONS.push(m);
+    updateDexRow(x.s, `[data-act=add][data-pid="${pid}"][data-shiny="${shiny ? 1 : 0}"]`);
+    persist("Speichern", () => db.putMons([m]));
+  } else {
+    // nur unbearbeitete Schnell-Einträge entfernen, den zuletzt angelegten zuerst
+    const cand = MONS.filter(m => m.pid === pid && m.quick && !!m.shiny === shiny).sort((a, b) => (b.added || 0) - (a.added || 0))[0];
+    if (!cand){ toast("Hier lassen sich nur unbearbeitete Schnell-Einträge entfernen. Andere löschst du im Editor."); return; }
+    MONS = MONS.filter(m => m.id !== cand.id);
+    updateDexRow(x.s, `[data-act=sub][data-pid="${pid}"][data-shiny="${shiny ? 1 : 0}"]`);
+    persist("Löschen", () => db.delMon(cand.id));
+  }
+}
+$("#dexList").addEventListener("click", e => {
+  const b = e.target.closest("button"); if (!b) return;
+  if (b.dataset.forms){ const s = +b.dataset.forms; dexOpen.has(s) ? dexOpen.delete(s) : dexOpen.add(s); updateDexRow(s, "[data-forms]"); return; }
+  if (b.dataset.act) dexStep(+b.dataset.pid, b.dataset.shiny === "1", b.dataset.act);
+});
+let dexQTimer;
+$("#dexQ").addEventListener("input", () => {
+  clearTimeout(dexQTimer);
+  dexQTimer = setTimeout(() => {
+    const q = $("#dexQ").value.trim();
+    renderDex();
+    if (/^#?\d+$/.test(q)) jumpToDex(+q.replace("#", ""));
+  }, 250);
+});
+$("#dexQ").addEventListener("keydown", e => { if (e.key === "Enter"){ const q = $("#dexQ").value.trim(); if (/^#?\d+$/.test(q)) jumpToDex(+q.replace("#", "")); } });
+$("#dexMissing").addEventListener("change", renderDex);
+$("#dexResume").onclick = () => { const pos = ls.get(DEXPOS_KEY, null); if (pos) jumpToDex(pos); };
+$("#tabBoxes").onclick = () => setView("boxes");
+$("#tabDex").onclick = () => setView("dex");
 
 /* ---------- Editor ---------- */
 let editing = null;      // Stand beim Öffnen; gespeichert wird immer über editing.id
@@ -898,7 +1107,7 @@ function fillEditor(m){
   $("#eOT").dataset.auto = ""; $("#tidHint").hidden = true;
   fillLists();
   $("#eOT").value = m.ot || ""; $("#eTID").value = m.tid || "";
-  $("#eShiny").checked = !!m.shiny; $("#eAlpha").checked = !!m.alpha; $("#eGmax").checked = !!m.gmax;
+  $("#eTodo").checked = !!m.incomplete; $("#eShiny").checked = !!m.shiny; $("#eAlpha").checked = !!m.alpha; $("#eGmax").checked = !!m.gmax;
   for (let i = 0; i < 4; i++) $("#eM" + (i+1)).value = m.moves?.[i] || "";
   $("#eIVT").value = m.ivt ?? ""; $("#eNoEV").checked = !!m.noEV;
   for (let i = 0; i < 6; i++){ $("#ivr" + i).value = m.ivr?.[i] ?? ""; $("#ht" + i).checked = !!m.ht?.[i]; $("#sv" + i).value = m.sv?.[i] || ""; }
@@ -919,7 +1128,7 @@ function readEditor(){
     char: $("#eChar").value === "" ? null : +$("#eChar").value,
     sv: [0,1,2,3,4,5].map(i => { const v = parseInt($("#sv" + i).value, 10); return v > 0 ? v : null; }),
     ot: $("#eOT").value.trim(), tid: $("#eTID").value.trim(),
-    shiny: $("#eShiny").checked, alpha: $("#eAlpha").checked, gmax: $("#eGmax").checked,
+    incomplete: $("#eTodo").checked, shiny: $("#eShiny").checked, alpha: $("#eAlpha").checked, gmax: $("#eGmax").checked,
     moves: [1,2,3,4].map(i => $("#eM" + i).value.trim()).filter(Boolean),
     ivr: [0,1,2,3,4,5].map(i => $("#ivr" + i).value === "" ? null : +$("#ivr" + i).value),
     ivt: $("#eIVT").value === "" ? null : +$("#eIVT").value,
@@ -942,6 +1151,7 @@ $("#edForm").addEventListener("submit", e => {
     // aktuellen Eintrag über die id suchen: der Bestand kann inzwischen aus der Cloud neu geladen worden sein
     const k = MONS.findIndex(m => m.id === editing.id);
     target = { ...(k >= 0 ? MONS[k] : editing), ...data, id: editing.id };
+    delete target.quick;   // im Editor bearbeitet: zählt nicht mehr als Schnell-Eintrag (− in der Dex-Ansicht lässt ihn in Ruhe)
     if (k >= 0) MONS[k] = target; else MONS.push(target);
   } else { target = { id: newId(), added: Date.now(), ...data }; MONS.push(target); }
   editing = null; edBaseline = null; clearDraft();
@@ -988,7 +1198,7 @@ function askImport(count){
 /* ---------- Ereignisse ---------- */
 $("#addBtn").onclick = () => openEditor();
 $("#box").addEventListener("click", e => { const c = e.target.closest(".mon"); if (c) openEditor(c.dataset.id); });
-["#q","#fType","#fNature","#fBox","#fPot","#fShiny","#sort"].forEach(s => $(s).addEventListener("input", render));
+["#q","#fType","#fNature","#fBox","#fPot","#fShiny","#fTodo","#sort"].forEach(s => $(s).addEventListener("input", render));
 $("#reloadData").onclick = () => loadDex(true);
 function download(name, obj){
   const blob = new Blob([JSON.stringify(obj, null, 2)], { type: "application/json" });
@@ -1063,7 +1273,7 @@ async function init(){
   }
   if (upgraded.length) await persist("Aktualisieren älterer Einträge", () => db.putMons(upgraded));
   checkLegacy();
-  render();
+  setView(VIEW);
   showDraftBar();
   requestPersist();
   loadDex(false);

@@ -3,6 +3,15 @@
 Ein Tool, um die eigenen Pokémon aus Pokémon Home zu verwalten: Potential, Wesen, Fähigkeit,
 Herkunft, Box und Platz. Läuft unter https://thevizce.github.io/pokemon-home/.
 
+## Nach Dex erfassen
+
+Für den schnellen Grundbestand: Die Ansicht „Nach Dex erfassen“ listet alle Pokémon nach Dex-Nummer.
+Pro Art (und Form) zählst du mit + hoch, getrennt nach normal und Shiny. Jeder Tipp legt ein Pokémon an,
+das als unvollständig markiert ist; unter „Meine Pokémon“ findest du diese Einträge mit dem Filter
+„Nur unvollständige“ und trägst die Details nach. Den Haken „Noch unvollständig“ im Editor nimmst du
+selbst heraus, wenn ein Eintrag fertig ist. Mit − lassen sich nur Schnell-Einträge entfernen, die noch
+nicht im Editor bearbeitet wurden.
+
 ## Pokédex-Daten
 
 Beim ersten Öffnen lädt die Seite die offenen Daten des PokéAPI-Projekts (deutsche Namen, Typen,
@@ -17,9 +26,10 @@ Im Browser in der IndexedDB `pokemon-home-tool`:
 - `mons`: deine Pokémon, ein Datensatz pro Pokémon
 - `meta`: die Zuordnung Trainer-ID zu OT-Name (`trainers`) und den Pokédex-Zwischenspeicher (`dex`)
 
-Im localStorage (für alle Tools unter thevizce.github.io gemeinsam) liegen nur zwei kleine Einträge:
-`pkbox.theme` (Hell/Dunkel) und `pkbox.draft` (ein ungespeicherter Editor-Entwurf, damit beim Neuladen
-oder App-Wechsel nichts verloren geht). Das Tool ruft nie `localStorage.clear()` auf und fasst keine
+Im localStorage (für alle Tools unter thevizce.github.io gemeinsam) liegen nur kleine Einträge:
+`pkbox.theme` (Hell/Dunkel), `pkbox.view` und `pkbox.dexpos` (gewählte Ansicht und „Weiter bei #…“)
+sowie `pkbox.draft` (ein ungespeicherter Editor-Entwurf, damit beim Neuladen oder App-Wechsel nichts
+verloren geht). Das Tool ruft nie `localStorage.clear()` auf und fasst keine
 Schlüssel anderer Tools an.
 
 Kann etwas nicht gespeichert werden (z. B. weil der Speicher voll ist), erscheint oben eine Meldung, die
