@@ -236,6 +236,12 @@ dialog::backdrop{background:rgba(10,14,22,.55)}
 .imp-opt{display:grid;grid-template-columns:auto 1fr;gap:12px;align-items:center}
 .imp-opt .btn{min-width:150px}
 @media (max-width:480px){.imp-opt{grid-template-columns:1fr}}
+fieldset.games{border:1px solid var(--line);border-radius:var(--radius-sm);padding:8px 12px 10px;margin:0;min-width:0}
+fieldset.games legend{font-size:14px;color:var(--ink-soft);padding:0 4px}
+.gamegrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:4px 12px}
+.gamegrid .check{font-size:14px;align-items:flex-start}
+.check input[type=checkbox]{flex:none}
+#gameHint{display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center;margin-top:6px;color:var(--bad)}
 .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--ink);color:var(--paper);padding:10px 18px;border-radius:999px;font-weight:700;opacity:0;transition:opacity .2s;pointer-events:none;z-index:50}
 .toast.on{opacity:1}
 @media (prefers-reduced-motion: reduce){*{transition:none!important}}
@@ -290,6 +296,9 @@ body{padding-left:env(safe-area-inset-left);padding-right:env(safe-area-inset-ri
     </label>
     <label class="row"><input type="checkbox" id="fShiny"> Nur Shinys</label>
     <label class="row"><input type="checkbox" id="fTodo"> Nur unvollständige <span class="hint" id="todoCount"></span></label>
+    <label>Kann in
+      <select id="fGame"><option value="">Alle Spiele</option></select>
+    </label>
     <label>Sortieren nach
       <select id="sort">
         <option value="dex">Pokédex-Nummer</option>
@@ -391,6 +400,11 @@ body{padding-left:env(safe-area-inset-left);padding-right:env(safe-area-inset-ri
           <label class="f">Ball <input type="text" id="eBall" list="ballList"></label>
         </div>
         <label class="f">Lagerdatum in Home <input type="date" id="eDeposit"></label>
+        <fieldset class="games">
+          <legend>Mögliche Zielspiele</legend>
+          <div class="gamegrid" id="eGames"></div>
+          <div class="hint" id="gameHint" hidden></div>
+        </fieldset>
         <h3>Attacken</h3>
         <div class="f2">
           <input type="text" id="eM1" list="moveList" aria-label="Attacke 1" placeholder="Attacke 1">
@@ -490,8 +504,21 @@ const CHARS = [
   ["Besitzt einen starken Willen.","Ist etwas eitel.","Ist sehr aufsässig.","Hasst Niederlagen.","Ist dickköpfig."],
   ["Ist gerne schnell unterwegs.","Achtet auf Geräusche.","Ist ungestüm und einfältig.","Ist ein bisschen albern.","Flüchtet schnell."]];
 const ORIGINS = ["Kanto","Johto","Hoenn","Sinnoh","Einall","Kalos","Alola","Galar","Hisui","Paldea","Pokémon Home","Pokémon GO","Let's Go (Kanto)","Virtual Console"];
+// Spiele, in die ein Pokémon aus Home gebracht werden kann (Editionen zusammengefasst)
+const TARGETS = [["sv","Karmesin / Purpur"],["za","Legenden: Z-A"],["champ","Pokémon Champions"],["pla","Legenden: Arceus"],["swsh","Schwert / Schild"],["bdsp","Strahlender Diamant / Leuchtende Perle"],["lgpe","Let's Go, Pikachu! / Evoli!"]];
+const ZA_ONLY = ["za", "champ"];   // Pokémon aus Z-A können nur noch nach Z-A und Champions
+// Namen, die in den Pokédex-Daten fehlen oder veraltet sind
+const ABILITY_RENAME = { "Tempomacher": "Gleichmut", "Nutznießer": "Symbiose", "Hagelalarm": "Schneeschauer" };   // seit Gen 9
+const FORM_DE = {
+  10250: "Paldea Tauros (Gefechtsvariante)", 10251: "Paldea Tauros (Flammenvariante)", 10252: "Paldea Tauros (Flutenvariante)",
+  10253: "Paldea Felino", 10254: "Fragrunz ♀", 10255: "Dummimisel (Dreisegmentform)", 10257: "Famieps (Dreierfamilie)",
+  10258: "Nigiragi (Hängende Form)", 10259: "Nigiragi (Gestreckte Form)",
+  10260: "Krawalloro (Blaues Gefieder)", 10261: "Krawalloro (Gelbes Gefieder)", 10262: "Krawalloro (Weißes Gefieder)",
+  10263: "Gierspenst (Wanderform)", 10272: "Blutmond-Ursaluna",
+  10273: "Ogerpon (Brunnenmaske)", 10274: "Ogerpon (Ofenmaske)", 10275: "Ogerpon (Fundamentmaske)"
+};
 const BALLS = ["Pokéball","Superball","Hyperball","Meisterball","Safariball","Netzball","Tauchball","Nestball","Wiederball","Timerball","Luxusball","Premierball","Finsterball","Heilball","Flottball","Jubelball","Turboball","Levelball","Köderball","Schwerball","Sympaball","Freundesball","Mondball","Traumball","Ultraball"];
-const GAMES = ["Karmesin","Purpur","Legenden: Z-A","Legenden: Arceus","Schwert","Schild","Strahlender Diamant","Leuchtende Perle","Let's Go, Pikachu!","Let's Go, Evoli!","Pokémon GO","Sonne","Mond","Ultrasonne","Ultramond","X","Y","Omega Rubin","Alpha Saphir","Virtual Console"];
+const GAMES = ["Karmesin","Purpur","Legenden: Z-A","Legenden: Arceus","Schwert","Schild","Strahlender Diamant","Leuchtende Perle","Let's Go, Pikachu!","Let's Go, Evoli!","Pokémon GO","Feuerrot","Blattgrün","Sonne","Mond","Ultrasonne","Ultramond","X","Y","Omega Rubin","Alpha Saphir","Virtual Console"];
 
 const CSV_BASE = "https://raw.githubusercontent.com/PokeAPI/pokeapi/master/data/v2/csv/";
 const SPRITE = (id, shiny) => `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${shiny ? "shiny/" : ""}${id}.png`;
@@ -713,6 +740,8 @@ function buildDex(d){
 }
 
 function useDex(dex, quiet){
+  for (const x of dex.p) if (FORM_DE[x.id]) x.n = FORM_DE[x.id];
+  for (const id in dex.a) if (ABILITY_RENAME[dex.a[id]]) dex.a[id] = ABILITY_RENAME[dex.a[id]];
   DEX = dex; BYID.clear(); BYNAME.clear();
   // gleiche Namen (z. B. mehrere Formen ohne eigenen Namen) eindeutig machen
   const seen = {};
@@ -866,6 +895,7 @@ function fillFilters(){
   $("#eChar").innerHTML = `<option value="">– nicht eingetragen –</option>` + CHARS.map((row, s) => `<optgroup label="${STATS[s]} ist am höchsten">` +
     row.map((t, r) => `<option value="${s * 5 + r}">${t} (DV ${[0,1,2,3,4,5,6].map(k => r + 5 * k).filter(v => v <= 31).join(", ")})</option>`).join("") + `</optgroup>`).join("");
   $("#originList").innerHTML = [...new Set([...GAMES, ...ORIGINS])].map(o => `<option value="${esc(o)}">`).join("");
+  $("#fGame").innerHTML = `<option value="">Alle Spiele</option>` + TARGETS.map(([k, n]) => `<option value="${k}">${esc(n)}</option>`).join("") + `<option value="none">Kein Zielspiel eingetragen</option>`;
   $("#ballList").innerHTML = BALLS.map(b => `<option value="${b}">`).join("");
 }
 function fillBoxFilter(){
@@ -876,7 +906,7 @@ function fillBoxFilter(){
 
 function render(){
   fillBoxFilter();
-  const fp = $("#fPot").value, ftodo = $("#fTodo").checked;
+  const fp = $("#fPot").value, ftodo = $("#fTodo").checked, fg = $("#fGame").value;
   const q = $("#q").value.trim().toLowerCase(), ft = +$("#fType").value || 0, fn = $("#fNature").value, fb = $("#fBox").value, fs = $("#fShiny").checked;
   let list = MONS.filter(m => {
     const sp = speciesOf(m);
@@ -885,6 +915,7 @@ function render(){
     if (fb && m.box !== fb) return false;
     if (fs && !m.shiny) return false;
     if (ftodo && !m.incomplete) return false;
+    if (fg && (fg === "none" ? (m.games || []).length : !(m.games || []).includes(fg))) return false;
     if (fp !== "" && (fp === "none" ? totalTier(m) != null : String(totalTier(m)) !== fp)) return false;
     if (q){
       const hay = [displayName(m), sp?.n, m.species, m.notes, (m.tags || []).join(" "), m.ot, m.loc, m.origin].join(" ").toLowerCase();
@@ -946,7 +977,7 @@ function updateCounts(){
   const todo = MONS.filter(m => m.incomplete).length;
   $("#todoCount").textContent = todo ? `(${todo})` : "";
 }
-function resetFilters(){ $("#q").value = ""; $("#fType").value = ""; $("#fNature").value = ""; $("#fBox").value = ""; $("#fShiny").checked = false; $("#fPot").value = ""; $("#fTodo").checked = false; render(); }
+function resetFilters(){ $("#q").value = ""; $("#fType").value = ""; $("#fNature").value = ""; $("#fBox").value = ""; $("#fShiny").checked = false; $("#fPot").value = ""; $("#fTodo").checked = false; $("#fGame").value = ""; render(); }
 
 /* ---------- Ansicht: Meine Pokémon / Nach Dex erfassen ---------- */
 let VIEW = ["dex", "plan"].includes(ls.get(VIEW_KEY, "boxes")) ? ls.get(VIEW_KEY, "boxes") : "boxes";
@@ -1290,6 +1321,7 @@ function refreshEditor(){
     name.innerHTML = `<span class="lg">${STATS[i]}${arrow}</span><span class="sm">${STATS_SHORT[i]}${arrow}</span>`;
   }
   showFpTotal(probe, res);
+  showGameHint();
   showNatureHint(probe, res, nat);
   // Gesamtpotential gegen die Einzelwerte prüfen: dafür ohne die eigene Vorgabe rechnen
   const [slo, shi] = ivSumRange({ ...probe, ivt: null }), tv = $("#eIVT").value, tEl = $("#ivTotal");
@@ -1344,9 +1376,26 @@ $("#natHint").addEventListener("click", e => {
   $("#eNature").value = b.dataset.nat; refreshEditor(); saveDraft();
 });
 
+// Pokémon aus Legenden: Z-A können nur noch nach Z-A und Pokémon Champions
+const isFromZA = () => /z[\s-]*a\b/i.test($("#eOrigin").value);
+function showGameHint(){
+  const el = $("#gameHint"), sel = TARGETS.map(t => t[0]).filter(k => $("#eGame_" + k).checked);
+  const bad = isFromZA() && sel.some(k => !ZA_ONLY.includes(k));
+  const key = bad ? "za" : "";
+  if (el.dataset.key === key) return;
+  el.dataset.key = key; el.hidden = !bad;
+  el.innerHTML = bad ? `<span>Pokémon aus Legenden: Z-A können nur nach Z-A und Pokémon Champions.</span><button type="button" class="natpick" id="gameFixZA">Nur diese beiden</button>` : "";
+}
+$("#gameHint").addEventListener("click", e => {
+  if (!e.target.closest("#gameFixZA")) return;
+  for (const [k] of TARGETS) $("#eGame_" + k).checked = ZA_ONLY.includes(k);
+  refreshEditor(); saveDraft();
+});
+
 function openEditor(id, draft){
   if (!ed.dataset.built){
     buildStatRows(); ed.dataset.built = 1;
+    $("#eGames").innerHTML = TARGETS.map(([k, n]) => `<label class="check"><input type="checkbox" id="eGame_${k}"> ${esc(n)}</label>`).join("");
     const onEdit = () => { refreshEditor(); saveDraft(); };
     ed.addEventListener("input", onEdit); ed.addEventListener("change", onEdit);
     ed.addEventListener("cancel", e => { e.preventDefault(); closeEditor(); });   // Escape
@@ -1369,7 +1418,8 @@ function fillEditor(m){
   $("#eGender").value = m.gender || ""; $("#eNature").value = m.nature ?? "";
   $("#eAbility").dataset.want = m.ability ?? "";
   $("#eTera").value = m.tera ?? ""; $("#eBall").value = m.ball || "";
-  $("#eOrigin").value = m.origin || ""; $("#eLoc").value = m.loc || ""; $("#eMetDate").value = m.metDate || "";
+  $("#eOrigin").value = m.origin || "";
+  for (const [k] of TARGETS) $("#eGame_" + k).checked = (m.games || []).includes(k); $("#eLoc").value = m.loc || ""; $("#eMetDate").value = m.metDate || "";
   $("#eMetLv").value = m.metLv || ""; $("#eDeposit").value = m.deposit || ""; $("#eChar").value = m.char ?? "";
   $("#eOT").dataset.auto = ""; $("#tidHint").hidden = true;
   fillLists();
@@ -1392,6 +1442,7 @@ function readEditor(){
     ball: $("#eBall").value.trim(),
     origin: $("#eOrigin").value.trim(), loc: $("#eLoc").value.trim(), metDate: $("#eMetDate").value,
     metLv: $("#eMetLv").value ? +num($("#eMetLv").value, 1, 100) : null, deposit: $("#eDeposit").value,
+    games: TARGETS.map(t => t[0]).filter(k => $("#eGame_" + k).checked),
     char: $("#eChar").value === "" ? null : +$("#eChar").value,
     sv: [0,1,2,3,4,5].map(i => { const v = parseInt($("#sv" + i).value, 10); return v > 0 ? v : null; }),
     ot: $("#eOT").value.trim(), tid: $("#eTID").value.trim(),
@@ -1465,7 +1516,7 @@ function askImport(count){
 /* ---------- Ereignisse ---------- */
 $("#addBtn").onclick = () => openEditor();
 $("#box").addEventListener("click", e => { const c = e.target.closest(".mon"); if (c) openEditor(c.dataset.id); });
-["#q","#fType","#fNature","#fBox","#fPot","#fShiny","#fTodo","#sort"].forEach(s => $(s).addEventListener("input", render));
+["#q","#fType","#fNature","#fBox","#fPot","#fShiny","#fTodo","#fGame","#sort"].forEach(s => $(s).addEventListener("input", render));
 $("#reloadData").onclick = () => loadDex(true);
 function download(name, obj){
   const blob = new Blob([JSON.stringify(obj, null, 2)], { type: "application/json" });
