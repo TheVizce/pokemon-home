@@ -106,6 +106,32 @@ input[type=checkbox]{width:18px;height:18px;accent-color:var(--accent)}
 .mon .todotag{font-size:12px;font-weight:700;color:var(--ink-soft);border:1px dashed var(--ink-soft);border-radius:999px;padding:0 8px;justify-self:start}
 .todo-check{padding:8px 10px;border:1px dashed var(--line);border-radius:var(--radius-sm)}
 
+/* Boxen-Plan */
+.wrap.planmode{grid-template-columns:1fr}
+.wrap.planmode .side{display:none}
+#planBoxes{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,330px),1fr));gap:14px;margin-top:4px}
+.pbox{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius-lg);padding:12px;display:grid;gap:10px;align-content:start}
+.pbox.done{border-color:var(--good)}
+.pbox header{display:flex;flex-wrap:wrap;gap:2px 10px;align-items:baseline}
+.pbox h3{font-size:18px}
+.pbox .ptitle{font-weight:700;color:var(--ink-soft)}
+.pbox .pstat{flex-basis:100%;font-size:13px;color:var(--ink-soft)}
+.pbox.free{border-style:dashed;align-self:start}
+@media (max-width:520px){.viewbar button{padding:8px 12px;font-size:14px}}
+.pgrid{display:grid;grid-template-columns:repeat(6,1fr);gap:4px}
+.pcell{aspect-ratio:1;border:1px solid var(--line);background:var(--slot);border-radius:8px;position:relative;padding:0;display:flex;align-items:center;justify-content:center;min-width:0;overflow:hidden}
+button.pcell{cursor:pointer}
+button.pcell:hover{border-color:var(--accent)}
+.pcell img{width:86%;height:86%;image-rendering:pixelated;object-fit:contain}
+.pcell .pno{position:absolute;left:3px;top:1px;font-size:10px;color:var(--ink-soft);font-variant-numeric:tabular-nums}
+.pcell .pfrom{position:absolute;right:2px;bottom:1px;font-size:10px;font-weight:700;color:var(--ink);background:var(--panel);border-radius:4px;padding:0 3px;font-variant-numeric:tabular-nums}
+.pcell .pstar{position:absolute;right:3px;top:0;font-size:11px;color:var(--shiny)}
+.pcell.done{background:color-mix(in srgb, var(--good) 16%, var(--panel));border-color:var(--good)}
+.pcell.gap{background:transparent;border-style:dashed}
+.pcell.gap .pno{position:static;font-size:10px}
+.pbox .btn{justify-self:start}
+.planwarn{color:var(--bad);font-weight:700}
+
 /* Dex-Erfassung */
 .dexbar{display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center;background:var(--panel);border:1px solid var(--line);border-radius:var(--radius-lg);padding:12px 14px;position:sticky;top:calc(8px + env(safe-area-inset-top));z-index:3}
 .dexbar input[type=search]{width:min(260px,100%)}
@@ -243,6 +269,7 @@ body{padding-left:env(safe-area-inset-left);padding-right:env(safe-area-inset-ri
   <div class="viewbar" role="tablist" aria-label="Ansicht">
     <button role="tab" id="tabBoxes" aria-selected="true" aria-controls="box">Meine Pokémon</button>
     <button role="tab" id="tabDex" aria-selected="false" aria-controls="dexView">Nach Dex erfassen</button>
+    <button role="tab" id="tabPlan" aria-selected="false" aria-controls="planView">Boxen-Plan</button>
   </div>
   <aside class="side" aria-label="Filter und Aktionen">
     <button class="btn primary" id="addBtn">Pokémon hinzufügen</button>
@@ -289,6 +316,15 @@ body{padding-left:env(safe-area-inset-left);padding-right:env(safe-area-inset-ri
 
   <section aria-label="Deine Pokémon">
     <div class="box" id="box" role="tabpanel" aria-labelledby="tabBoxes"></div>
+    <div id="planView" role="tabpanel" aria-labelledby="tabPlan" hidden>
+      <div class="dexbar">
+        <label class="check">Freie Boxen am Anfang (für GO) <input type="number" id="planFree" min="0" max="10" inputmode="numeric" style="width:64px"></label>
+        <label class="check"><input type="checkbox" id="planHideDone"> Fertige Boxen ausblenden</label>
+        <span class="hint" id="planSummary"></span>
+      </div>
+      <p class="hint dexhelp">Ein Vorschlag, wie du deine Boxen in Home einräumen kannst. Die festen Dex-Boxen haben für jede Art einen eigenen Platz; fehlende Arten bleiben frei, damit später nichts verrutscht. Dahinter folgen Formen, Shinys und weitere Exemplare, jede Art zusammen in einer Box. Grün = liegt laut Tool schon richtig, sonst steht klein dabei, wo das Pokémon gerade liegt. Hast du eine Box in Home so eingeräumt, tipp auf „Box ist so eingeräumt“ – erst dann trägt das Tool Box und Platz ein.</p>
+      <div id="planBoxes"></div>
+    </div>
     <div id="dexView" role="tabpanel" aria-labelledby="tabDex" hidden>
       <div class="dexbar">
         <input type="search" id="dexQ" placeholder="Nummer oder Name" aria-label="Zu Nummer springen oder nach Name filtern" autocomplete="off">
@@ -871,6 +907,7 @@ function render(){
 
   updateCounts();
   if (VIEW === "dex"){ renderDex(); return; }
+  if (VIEW === "plan"){ renderPlan(); return; }
 
   const box = $("#box");
   if (!MONS.length){
@@ -912,13 +949,13 @@ function updateCounts(){
 function resetFilters(){ $("#q").value = ""; $("#fType").value = ""; $("#fNature").value = ""; $("#fBox").value = ""; $("#fShiny").checked = false; $("#fPot").value = ""; $("#fTodo").checked = false; render(); }
 
 /* ---------- Ansicht: Meine Pokémon / Nach Dex erfassen ---------- */
-let VIEW = ls.get(VIEW_KEY, "boxes") === "dex" ? "dex" : "boxes";
+let VIEW = ["dex", "plan"].includes(ls.get(VIEW_KEY, "boxes")) ? ls.get(VIEW_KEY, "boxes") : "boxes";
 const dexOpen = new Set();     // Arten, deren Formen aufgeklappt sind
 function setView(v){
   VIEW = v; ls.set(VIEW_KEY, v);
-  $(".wrap").classList.toggle("dexmode", v === "dex");
-  $("#tabBoxes").setAttribute("aria-selected", v === "boxes"); $("#tabDex").setAttribute("aria-selected", v === "dex");
-  $("#box").hidden = v === "dex"; $("#dexView").hidden = v !== "dex";
+  $(".wrap").classList.toggle("dexmode", v === "dex"); $(".wrap").classList.toggle("planmode", v === "plan");
+  $("#tabBoxes").setAttribute("aria-selected", v === "boxes"); $("#tabDex").setAttribute("aria-selected", v === "dex"); $("#tabPlan").setAttribute("aria-selected", v === "plan");
+  $("#box").hidden = v !== "boxes"; $("#dexView").hidden = v !== "dex"; $("#planView").hidden = v !== "plan";
   render();
 }
 function dexGroups(){
@@ -1042,6 +1079,124 @@ $("#dexMissing").addEventListener("change", renderDex);
 $("#dexResume").onclick = () => { const pos = ls.get(DEXPOS_KEY, null); if (pos) jumpToDex(pos); };
 $("#tabBoxes").onclick = () => setView("boxes");
 $("#tabDex").onclick = () => setView("dex");
+$("#tabPlan").onclick = () => setView("plan");
+
+/* ---------- Boxen-Plan ----------
+   Reihenfolge: freie Boxen (GO) → feste Dex-Boxen (je Art ein Platz, Lücken bleiben frei)
+   → Formen → Shinys → weitere Exemplare → Pokémon ohne erkannte Art.
+   In den hinteren Bereichen bleibt jede Art zusammen in einer Box (außer sie hat mehr als 30). */
+const PLAN_KEY = "pkbox.plan", HOME_BOXES = 300, PER_BOX = 30;
+const planCfg = () => { const c = ls.get(PLAN_KEY, {}) || {}; return { free: Number.isFinite(+c.free) && c.free !== "" ? Math.max(0, Math.min(10, Math.round(+c.free))) : 1, hideDone: !!c.hideDone }; };
+const atPlace = (m, box, slot) => String(m.box ?? "").trim() === String(box) && +m.slot === slot;
+// Wie gut eignet sich ein Exemplar als „Haupt-Exemplar“: vollständig > Potential > ausgefüllte Felder
+function keeperScore(m){
+  const filled = [m.nature != null, m.ability, m.level, m.ivt != null, (m.ivr || []).some(v => v != null), (m.sv || []).some(Boolean), m.origin, m.ot, m.ball].filter(Boolean).length;
+  return (m.incomplete ? 0 : 1e7) + ((totalTier(m) ?? -1) + 1) * 1e5 + (ivKnown(m) ? ivSumRange(m)[0] : 0) * 100 + filled;
+}
+function computePlan(){
+  const cfg = planCfg(), boxes = [];
+  const newBox = (kind, title) => { const b = { no: boxes.length + 1, kind, title, slots: Array(PER_BOX).fill(null) }; boxes.push(b); return b; };
+  for (let i = 0; i < cfg.free; i++) newBox("free", "Frei für Neuzugänge aus GO");
+  if (!DEX) return { boxes, cfg, ready: false };
+
+  const groups = dexGroups(), bySpeciesPos = new Map(groups.map((g, k) => [g.s, k]));
+  const byPid = new Map(), noSpecies = [];
+  for (const m of MONS){ const x = m.pid && BYID.get(m.pid); if (!x) { noSpecies.push(m); continue; } if (!byPid.has(m.pid)) byPid.set(m.pid, []); byPid.get(m.pid).push(m); }
+  const firstDex = boxes.length + 1, dexBoxes = Math.ceil(groups.length / PER_BOX);
+  const dexTarget = k => ({ box: firstDex + Math.floor(k / PER_BOX), slot: (k % PER_BOX) + 1 });
+  // Haupt-Exemplar je Art/Form: normal vor Shiny; wer schon am Zielplatz liegt, bleibt (damit nichts unnötig wandert)
+  const pickMain = (list, target) => {
+    const pool = list.some(m => !m.shiny) ? list.filter(m => !m.shiny) : list;
+    return [...pool].sort((a, b) => (target && atPlace(b, target.box, target.slot) ? 1 : 0) - (target && atPlace(a, target.box, target.slot) ? 1 : 0) || keeperScore(b) - keeperScore(a) || (a.added || 0) - (b.added || 0))[0];
+  };
+  const used = new Set();
+  for (let i = 0; i < dexBoxes; i++){
+    const from = groups[i * PER_BOX].s, to = groups[Math.min(groups.length, (i + 1) * PER_BOX) - 1].s;
+    newBox("dex", `Dex ${pad3(from)}–${pad3(to)}`);
+  }
+  groups.forEach((g, k) => {
+    const list = byPid.get(g.base.id); const t = dexTarget(k);
+    boxes[t.box - 1].slots[t.slot - 1] = list && list.length ? (() => { const m = pickMain(list, t); used.add(m.id); return m; })() : { gap: g.base };
+  });
+  // hintere Bereiche: kompakt, eine Art nie über eine Boxgrenze (außer > 30)
+  const order = m => { const x = BYID.get(m.pid); return [bySpeciesPos.get(x.s) ?? 1e6, x.id === x.s ? 0 : 1, x.id, m.added || 0]; };
+  const cmp = (a, b) => { const A = order(a), B = order(b); for (let i = 0; i < A.length; i++) if (A[i] !== B[i]) return A[i] - B[i]; return 0; };
+  const area = (kind, label, groupsOf) => {
+    if (!groupsOf.length) return;
+    let n = 1, b = newBox(kind, `${label} ${n}`), pos = 0;
+    for (const grp of groupsOf){
+      if (pos && grp.length <= PER_BOX && pos + grp.length > PER_BOX){ b = newBox(kind, `${label} ${++n}`); pos = 0; }
+      for (const m of grp){
+        if (pos === PER_BOX){ b = newBox(kind, `${label} ${++n}`); pos = 0; }
+        b.slots[pos++] = m; used.add(m.id);
+      }
+    }
+  };
+  const groupBy = list => { const g = new Map(); for (const m of [...list].sort(cmp)){ if (!g.has(m.pid)) g.set(m.pid, []); g.get(m.pid).push(m); } return [...g.values()]; };
+  // Formen: ein Haupt-Exemplar je Form
+  const formMains = [];
+  for (const [pid, list] of byPid){ const x = BYID.get(pid); if (x.id === x.s) continue; const m = pickMain(list, null); formMains.push(m); used.add(m.id); }
+  area("forms", "Formen", formMains.sort(cmp).map(m => [m]));
+  const rest = MONS.filter(m => m.pid && BYID.get(m.pid) && !used.has(m.id));
+  area("shiny", "Shinys", groupBy(rest.filter(m => m.shiny)));
+  area("dupes", "Weitere", groupBy(rest.filter(m => !m.shiny)));
+  area("none", "Ohne Art", noSpecies.length ? [noSpecies] : []);
+  return { boxes, cfg, ready: true };
+}
+function planBoxStats(b){
+  const mons = b.slots.filter(x => x && !x.gap), done = mons.filter(m => atPlace(m, b.no, b.slots.indexOf(m) + 1)).length;
+  return { mons, done, complete: mons.length === done };
+}
+function renderPlan(){
+  const cfg = planCfg(), wrap = $("#planBoxes");
+  $("#planFree").value = cfg.free; $("#planHideDone").checked = cfg.hideDone;
+  const plan = computePlan();
+  if (!plan.ready){ wrap.innerHTML = `<p class="hint">Die Pokédex-Daten werden noch geladen…</p>`; return; }
+  const total = MONS.length, placed = plan.boxes.reduce((a, b) => a + planBoxStats(b).done, 0);
+  const over = plan.boxes.length > HOME_BOXES;
+  $("#planSummary").innerHTML = `${plan.boxes.length} von ${HOME_BOXES} Boxen · ${placed} von ${total} Pokémon schon am Platz` + (over ? ` · <span class="planwarn">Mehr Boxen, als Home hat</span>` : "");
+  wrap.innerHTML = plan.boxes.map(b => {
+    const st = planBoxStats(b);
+    if (cfg.hideDone && b.kind !== "free" && st.complete) return "";
+    if (b.kind === "free") return `<section class="pbox free"><header><h3>Box ${b.no}</h3><span class="ptitle">${esc(b.title)}</span><span class="pstat">Bleibt leer. Neue Pokémon aus GO kannst du hier ablegen und später einsortieren.</span></header></section>`;
+    const cells = b.slots.map((x, k) => {
+      if (!x) return `<div class="pcell gap" aria-hidden="true"></div>`;
+      if (x.gap) return `<div class="pcell gap" title="#${pad3(x.gap.s)} ${esc(x.gap.n)} – noch nicht vorhanden"><span class="pno">#${pad3(x.gap.s)}</span></div>`;
+      const sp = BYID.get(x.pid), done = atPlace(x, b.no, k + 1), cur = String(x.box ?? "").trim();
+      const where = cur ? `liegt jetzt in Box ${cur}${x.slot ? `, Platz ${x.slot}` : ""}` : "Ort nicht eingetragen";
+      return `<button class="pcell${done ? " done" : ""}" data-id="${x.id}" title="${esc(displayName(x))}${x.shiny ? " (Shiny)" : ""} – ${done ? "liegt schon hier" : where}">
+        <span class="pno">${sp ? "#" + pad3(sp.s) : ""}</span>${x.shiny ? `<span class="pstar" aria-hidden="true">★</span>` : ""}
+        ${sp ? `<img loading="lazy" alt="" src="${SPRITE(sp.id, x.shiny)}" onerror="this.style.visibility='hidden'">` : `<span>${esc(displayName(x)).slice(0, 6)}</span>`}
+        ${!done && cur ? `<span class="pfrom">${esc(cur)}${x.slot ? "/" + x.slot : ""}</span>` : ""}</button>`;
+    }).join("");
+    return `<section class="pbox${st.complete && st.mons.length ? " done" : ""}" id="pbox-${b.no}">
+      <header><h3>Box ${b.no}</h3><span class="ptitle">${esc(b.title)}</span>
+        <span class="pstat">${st.mons.length ? `${st.mons.length} Pokémon, ${st.done} schon am Platz` : "noch leer"}</span></header>
+      <div class="pgrid">${cells}</div>
+      ${st.mons.length && !st.complete ? `<button class="btn small" data-apply="${b.no}">Box ist so eingeräumt</button>` : ""}
+    </section>`;
+  }).join("");
+}
+async function applyPlanBox(no){
+  const plan = computePlan(), b = plan.boxes[no - 1]; if (!b) return;
+  const inBox = new Set(b.slots.filter(x => x && !x.gap).map(m => m.id));
+  const others = MONS.filter(m => String(m.box ?? "").trim() === String(no) && !inBox.has(m.id));
+  if (others.length && !confirm(`Box ${no} enthält danach genau die Pokémon aus dem Plan. ${others.length} weitere sind bisher als Box ${no} eingetragen und verlieren ihre Box-Angabe. Fortfahren?`)) return;
+  const changed = [];
+  b.slots.forEach((m, k) => { if (m && !m.gap && !atPlace(m, no, k + 1)) changed.push({ ...m, box: String(no), slot: k + 1 }); });
+  for (const m of others) changed.push({ ...m, box: "", slot: null });
+  if (!changed.length) return;
+  const byId = new Map(changed.map(m => [m.id, m]));
+  MONS = MONS.map(m => byId.get(m.id) || m);
+  render();
+  persist("Speichern der Box", () => db.putMons(changed), `Box ${no} eingetragen`);
+}
+$("#planBoxes").addEventListener("click", e => {
+  const a = e.target.closest("[data-apply]"); if (a) return applyPlanBox(+a.dataset.apply);
+  const c = e.target.closest(".pcell[data-id]"); if (c) openEditor(c.dataset.id);
+});
+$("#planFree").addEventListener("change", () => { ls.set(PLAN_KEY, { ...planCfg(), free: $("#planFree").value }); renderPlan(); });
+$("#planHideDone").addEventListener("change", () => { ls.set(PLAN_KEY, { ...planCfg(), hideDone: $("#planHideDone").checked }); renderPlan(); });
 
 /* ---------- Editor ---------- */
 let editing = null;      // Stand beim Öffnen; gespeichert wird immer über editing.id

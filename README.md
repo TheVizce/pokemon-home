@@ -12,6 +12,15 @@ das als unvollständig markiert ist; unter „Meine Pokémon“ findest du diese
 selbst heraus, wenn ein Eintrag fertig ist. Mit − lassen sich nur Schnell-Einträge entfernen, die noch
 nicht im Editor bearbeitet wurden.
 
+## Boxen-Plan
+
+Schlägt vor, wie du deine Boxen in Home einräumst: zuerst frei bleibende Boxen für Neuzugänge aus GO
+(Anzahl einstellbar, Standard 1), dann feste Dex-Boxen mit einem Platz je Art (fehlende Arten bleiben
+frei, damit später nichts verrutscht), danach Formen, Shinys und weitere Exemplare. In den hinteren
+Bereichen bleibt jede Art zusammen in einer Box, außer sie hat mehr als 30 Exemplare. Ins Dex-Raster
+kommt je Art das vollständigste Exemplar; wer schon an seinem Platz liegt, bleibt dort.
+„Box ist so eingeräumt“ trägt Box und Platz bei den Pokémon dieser Box ein.
+
 ## Pokédex-Daten
 
 Beim ersten Öffnen lädt die Seite die offenen Daten des PokéAPI-Projekts (deutsche Namen, Typen,
